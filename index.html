@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunny Gift Store - Premium Gifts & Presents</title>
+
+    <!-- ==================== SECURITY ==================== -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.google.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none'; upgrade-insecure-requests">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ==================== HEADER & NAVIGATION ==================== -->
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container">
+                <a href="index.html" class="navbar-brand logo">BunnyGiftStore</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+                        <li class="nav-item"><a class="nav-link active" href="#products">Home</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">All Gifts</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#products">All</a></li>
+                                <li><a class="dropdown-item" href="pages/photo-frames.html">Photo Frames</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item"><a class="nav-link" href="pages/about.html">About</a></li>
+                        <li class="nav-item"><a class="nav-link" href="pages/contact.html">Contact</a></li>
+                        <li class="nav-item ms-3"><a class="nav-link cart-link" href="#" id="cartButton">🛒 Cart <span id="cartCount" class="badge bg-danger rounded-pill">0</span></a></li>
+                    </ul>
+                </div>
+                
+            </div>
+        </nav>
+    </header>
+
+    <!-- ==================== HERO SECTION ==================== -->
+    <section class="hero hero-home">
+        <div class="hero-home-stars" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="hero-home-lights hero-home-lights-left" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="hero-home-lights hero-home-lights-right" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="hero-home-bokeh" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="hero-home-gifts" aria-hidden="true">
+            <img src="images/BG02.png" alt="" class="hh-gift hh-gift-l1">
+            <img src="images/TU01.png" alt="" class="hh-gift hh-gift-l2">
+            <img src="images/BG08.png" alt="" class="hh-gift hh-gift-l3">
+            <img src="images/CH02.png" alt="" class="hh-gift hh-gift-l4">
+            <img src="images/BG15.png" alt="" class="hh-gift hh-gift-r1">
+            <img src="images/BR01.png" alt="" class="hh-gift hh-gift-r2">
+            <img src="images/BG20.png" alt="" class="hh-gift hh-gift-r3">
+            <img src="images/KC01.png" alt="" class="hh-gift hh-gift-r4">
+        </div>
+
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-home-title">🎁 Welcome to Bunny Gift Store 🐰</h1>
+                <p class="hero-home-subtitle">Discover the Perfect Gifts for Every Occasion</p>
+                <button class="btn-primary hero-home-cta" onclick="document.getElementById('products').scrollIntoView({behavior: 'smooth'})">Shop Now</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== PRODUCTS SECTION ==================== -->
+    <section class="products-section" id="products">
+        <div class="container">
+            <h2 class="section-title">Our Premium Collections</h2>
+            <p class="section-subtitle">Handpicked gifts curated with love for your special moments</p>
+            <div class="products-grid" id="productsContainer">
+                <!-- Products will be rendered by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== PRODUCT MODAL ==================== -->
+    <div id="productModal" class="product-modal">
+        <div class="product-modal-content">
+            <div class="product-modal-header">
+                <h2>Product Details</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div id="modalBody" class="product-modal-body">
+                <!-- Product details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer>
+        <p>&copy; 2026 Bunny Gift Store. All rights reserved.</p>
+        <p class="no-copy-notice">All product images, designs and content on this website are copyrighted. Unauthorized copying, reproduction or redistribution is strictly prohibited.</p>
+        <p class="footer-gst small">GSTIN: 36BYOPP7705A1ZB</p>
+        <p>🐰 Spreading Joy with Every Gift 🎁</p>
+        <p class="footer-links">
+            <a href="pages/privacy-policy.html">Privacy Policy</a> ·
+            <a href="pages/shipping-policy.html">Shipping Policy</a> ·
+            <a href="pages/terms.html">Terms &amp; Conditions</a> ·
+            <a href="pages/refund-policy.html">Refund Policy</a>
+        </p>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+            crossorigin="anonymous"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+    
+    <!-- Custom JS -->
+    <script src="js/script.js"></script>
+</body>
+</html>

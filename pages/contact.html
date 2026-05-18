@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - Bunny Gift Store</title>
+
+    <!-- ==================== SECURITY ==================== -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.google.com; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none'; upgrade-insecure-requests">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM"
+          crossorigin="anonymous">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- ==================== HEADER & NAVIGATION ==================== -->
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container">
+                <a href="../index.html" class="navbar-brand logo">BunnyGiftStore</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+                        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">All Gifts</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="../index.html#products">All</a></li>
+                                <li><a class="dropdown-item" href="photo-frames.html">Photo Frames</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                        <li class="nav-item"><a class="nav-link active" href="contact.html">Contact</a></li>
+                        <li class="nav-item ms-3"><a class="nav-link cart-link" href="#" id="cartButton">🛒 Cart <span id="cartCount" class="badge bg-danger rounded-pill">0</span></a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ==================== HERO SECTION ==================== -->
+    <section class="hero hero-contact">
+        <div class="hero-contact-rings" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+        </div>
+        <div class="hero-contact-icons" aria-hidden="true">
+            <span class="hcicon hcicon-envelope hcicon-pos-1"></span>
+            <span class="hcicon hcicon-phone hcicon-pos-2"></span>
+            <span class="hcicon hcicon-chat hcicon-pos-3"></span>
+            <span class="hcicon hcicon-pin hcicon-pos-4"></span>
+            <span class="hcicon hcicon-heart hcicon-pos-5"></span>
+            <span class="hcicon hcicon-envelope hcicon-pos-6"></span>
+            <span class="hcicon hcicon-phone hcicon-pos-7"></span>
+            <span class="hcicon hcicon-chat hcicon-pos-8"></span>
+            <span class="hcicon hcicon-pin hcicon-pos-9"></span>
+            <span class="hcicon hcicon-heart hcicon-pos-10"></span>
+        </div>
+        <div class="hero-contact-bokeh" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="hero-content">
+            <h1 class="hero-contact-title">Get In Touch With Us</h1>
+            <p class="hero-contact-subtitle">We'd Love to Hear From You!</p>
+        </div>
+    </section>
+
+    <!-- ==================== CONTACT SECTION ==================== -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="row g-4">
+                <!-- Left Side: Contact Information -->
+                <div class="col-lg-6">
+                    <div class="contact-info">
+                        <h2>Contact Information</h2>
+                
+                <div class="contact-info-item">
+                    <div class="contact-icon address-icon">📍</div>
+                    <div class="contact-content">
+                        <h3>Address</h3>
+                        <p>Bunny Gifts Store<br>Behind Gismath Mandi, Pragathi Nagar<br/>Kukatpally, JNTU, Hyderabad, Telangana 500090</p>
+                        <a href="https://maps.google.com/?q=Bunny+Gifts+Store,+Behind+Gismath+Mandi,+Pragathi+Nagar,+Kukatpally,+JNTU,+Hyderabad,+Telangana+500090" target="_blank" rel="noopener noreferrer" class="maps-link">Click to view on Google maps →</a>
+                    </div>
+                </div>
+
+                <div class="contact-info-item">
+                    <div class="contact-icon phone-icon">📞</div>
+                    <div class="contact-content">
+                        <h3>Phone</h3>
+                        <p>+91-9701-756-904</p>
+                    </div>
+                </div>
+
+                <div class="contact-info-item">
+                    <div class="contact-icon email-icon">📧</div>
+                    <div class="contact-content">
+                        <h3>Email</h3>
+                        <p>brscustomgifts@gmail.com</p>
+                    </div>
+                </div>
+
+                <div class="contact-info-item">
+                    <div class="contact-icon hours-icon">⏰</div>
+                    <div class="contact-content">
+                        <h3>Working Hours</h3>
+                        <p>Monday - Saturday: 09:00 AM - 09:00 PM<br>Sunday: Closed</p>
+                    </div>
+                </div>
+
+                <div class="contact-info-item">
+                    <div class="contact-icon social-icon-badge">🌐</div>
+                    <div class="contact-content">
+                        <h3>Social Media</h3>
+                        <div class="social-media-icons">
+                            <a href="https://www.instagram.com/bunnygiftsstore?igsh=eW5na2lldjlkaWVu&utm_source=qr" target="_blank" rel="noopener noreferrer" title="Instagram" class="social-link">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/>
+                                </svg>
+                            </a>
+                            <a href="#" title="Facebook" class="social-link">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <!-- Right Side: Map -->
+            <div class="contact-map">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.0693852124586!2d78.3645!3d17.3842!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bcb91f5c8c8c8c9%3A0x8c8c8c8c8c8c8c8c!2sBunny%20Gifts%20Store!5e0!3m2!1sen!2sin!4v1234567890" width="100%" height="500" class="contact-map-iframe" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups" title="Bunny Gifts Store location on Google Maps"></iframe>
+            </div>
+        </div>
+    </div>
+
+      
+    </section>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer>
+        <p>&copy; 2026 Bunny Gift Store. All rights reserved.</p>
+        <p class="no-copy-notice">All product images, designs and content on this website are copyrighted. Unauthorized copying, reproduction or redistribution is strictly prohibited.</p>
+        <p class="footer-gst small">GSTIN: 36BYOPP7705A1ZB</p>
+        <p>🐰 Spreading Joy with Every Gift 🎁</p>
+        <p class="footer-links">
+            <a href="privacy-policy.html">Privacy Policy</a> ·
+            <a href="shipping-policy.html">Shipping Policy</a> ·
+            <a href="terms.html">Terms &amp; Conditions</a> ·
+            <a href="refund-policy.html">Refund Policy</a>
+        </p>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+            crossorigin="anonymous"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+    
+    <!-- Custom JS -->
+    <script src="../js/script.js"></script>
+</body>
+</html>
