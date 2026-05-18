@@ -917,7 +917,7 @@ nav .nav-link.dropdown-toggle.active::after, .nav-link.dropdown-toggle.show::aft
 .btn-primary {
     background: linear-gradient(135deg, var(--light-purple) 0%, var(--accent-color) 100%);
     color: var(--text-light);
-    padding: 0.8rem 2rem;
+    padding: 0.8rem;
     border: none;
     border-radius: 50px;
     font-size: 1rem;
