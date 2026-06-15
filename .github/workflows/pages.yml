@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Assemble ONLY the public static storefront.
+      # The server/ backend, client/ React stub, node_modules and the
+      # SQLite database are intentionally excluded so they are never
+      # published or exposed.
+      - name: Assemble static site
+        run: |
+          mkdir _site
+          cp index.html _site/
+          cp CNAME _site/ 2>/dev/null || true
+          cp -r css _site/
+          cp -r js _site/
+          cp -r images _site/
+          cp -r pages _site/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

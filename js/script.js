@@ -332,6 +332,7 @@ const pngProducts = new Set([
 const assetBasePath = location.pathname.includes('/pages/') ? '../' : '';
 const cartItems = loadCart();
 let checkoutData = {};
+const API_BASE = window.BUNNY_API_BASE || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
 
 function assetPath(path) {
     return `${assetBasePath}${path}`;
@@ -640,7 +641,7 @@ function showPaymentQR() {
     `;
 }
 
-function submitTransactionDetails() {
+async function submitTransactionDetails() {
     if (!checkoutData.name) {
         alert('Please complete the checkout form first.');
         return;
@@ -659,39 +660,60 @@ function submitTransactionDetails() {
         return;
     }
 
-    const ownerEmail = 'brscustomgifts@gmail.com';
     const totalCost = cartItems.reduce((sum, item) => sum + ((item.pricePerUnit || item.price) * (item.quantity || 1)), 0);
     const totalQty = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-    const productLines = cartItems.map(item => {
-        const quantity = item.quantity || 1;
-        const unitPrice = item.pricePerUnit || item.price;
-        return `- ${item.name} (Code: ${item.code}${item.size ? `, Size: ${item.size}` : ''}) x ${quantity} = ${formatPrice(unitPrice * quantity)}`;
-    }).join('\n');
 
-    const plainBody = [
-        'New order from Bunny Gift Store website',
-        '',
-        'Payment details:',
-        `Transaction ID: ${transactionId}`,
-        `Total Payment Amount: ${formatPrice(totalCost)}`,
-        '',
-        'Customer details:',
-        `Name: ${checkoutData.name}`,
-        `Email: ${checkoutData.email}`,
-        `Phone: ${checkoutData.phone}`,
-        `Address: ${checkoutData.address}, ${checkoutData.city}, ${checkoutData.state} - ${checkoutData.pincode}`,
-        '',
-        'Order details:',
-        productLines,
-        '',
-        `Total quantity: ${totalQty}`,
-        `Total cost: ${formatPrice(totalCost)}`,
-        ''
-    ].join('\n');
+    try {
+        const response = await fetch(`${API_BASE}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...checkoutData,
+                transactionId,
+                totalAmount: totalCost,
+                totalItems: totalQty
+            })
+        });
 
-    const subject = encodeURIComponent('New Order from Bunny Gift Store');
-    const body = encodeURIComponent(plainBody);
-    window.location.href = `mailto:${ownerEmail}?subject=${subject}&body=${body}`;
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to save order');
+
+        const ownerEmail = 'brscustomgifts@gmail.com';
+        const productLines = cartItems.map(item => {
+            const quantity = item.quantity || 1;
+            const unitPrice = item.pricePerUnit || item.price;
+            return `- ${item.name} (Code: ${item.code}${item.size ? `, Size: ${item.size}` : ''}) x ${quantity} = ${formatPrice(unitPrice * quantity)}`;
+        }).join('\n');
+
+        const plainBody = [
+            'New order from Bunny Gift Store website',
+            '',
+            'Payment details:',
+            `Transaction ID: ${transactionId}`,
+            `Total Payment Amount: ${formatPrice(totalCost)}`,
+            '',
+            'Customer details:',
+            `Name: ${checkoutData.name}`,
+            `Email: ${checkoutData.email}`,
+            `Phone: ${checkoutData.phone}`,
+            `Address: ${checkoutData.address}, ${checkoutData.city}, ${checkoutData.state} - ${checkoutData.pincode}`,
+            '',
+            'Order details:',
+            productLines,
+            '',
+            `Total quantity: ${totalQty}`,
+            `Total cost: ${formatPrice(totalCost)}`,
+            ''
+        ].join('\n');
+
+        alert('Order saved successfully. You can now send the order email to the store owner.');
+        const subject = encodeURIComponent('New Order from Bunny Gift Store');
+        const body = encodeURIComponent(plainBody);
+        window.location.href = `mailto:${ownerEmail}?subject=${subject}&body=${body}`;
+    } catch (error) {
+        console.error(error);
+        alert(error.message || 'Unable to save the order right now.');
+    }
 }
 
 // ==================== PRODUCT RENDERING ==================== 

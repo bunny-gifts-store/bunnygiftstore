@@ -31,6 +31,10 @@ yarn-debug.log*
 dist/
 build/
 
+# Server database (contains customer order data — never publish)
+*.db
+server/*.db
+
 # Logs
 *.log
 
