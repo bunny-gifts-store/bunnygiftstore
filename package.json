@@ -1,0 +1,13 @@
+{
+  "name": "bunnygiftstore",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npx serve . -l 3000",
+    "deploy": "npx gh-pages -d . -b gh-pages"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "serve": "^14.2.6"
+  }
+}

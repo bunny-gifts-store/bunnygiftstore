@@ -1,0 +1,12 @@
+pages:
+  stage: deploy
+  script:
+    # Create public folder
+    - mkdir public
+    # Copy only the needed files/folders (skip hidden files)
+    - cp -r index.html css images public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
