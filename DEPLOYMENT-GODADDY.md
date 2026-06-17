@@ -1,31 +1,23 @@
 # GoDaddy Deployment Guide
 
-This project now has:
-- a static storefront (existing HTML/CSS/Bootstrap UI)
-- a SQLite-backed API for real-time order storage
-- a React/Vite frontend layer for future dynamic features
+This project is a static storefront for the public site.
 
 ## What to deploy
-1. Upload the full project root to your GoDaddy hosting account.
-2. Run the backend from the `server/` folder with Node.js.
-3. Point the frontend to the backend using `window.BUNNY_API_BASE`.
+1. Upload the static site files to your web root: `index.html`, `css/`, `js/`, `images/`, `pages/`, and `CNAME` if you are using a custom domain through GitHub Pages.
+2. Do not upload the `server/` folder unless you are intentionally hosting the Node API on a separate Node-capable environment.
+3. If you use a custom domain, make sure it is `bunnygiftstore.com`.
+4. Keep the root `.htaccess` file in place so HTTP requests are redirected to HTTPS.
 
 ## Recommended hosting type
-Use a GoDaddy plan that supports Node.js (Plesk or VPS). Shared hosting may not support native modules such as `better-sqlite3`.
+Use GoDaddy shared hosting for the static storefront, or use GoDaddy DNS to point the domain at a static host such as GitHub Pages.
 
 ## Steps
-1. In GoDaddy, open your hosting plan and access the Node.js / Plesk terminal.
-2. Upload the project files to the app root.
-3. In the terminal, run:
-   cd server
-   npm install
-   npm start
-4. Keep the backend running on port 5000 (or the hosting platform's assigned port).
-5. Set the frontend API base URL in your deployed page:
-   window.BUNNY_API_BASE = 'https://YOUR-BACKEND-URL';
-6. Open your domain to confirm the storefront loads.
+1. Confirm the domain in DNS is `bunnygiftstore.com`.
+2. Upload the static files to the site root.
+3. If deploying through GitHub Pages, keep the `CNAME` file in the published output.
+4. Open the domain and verify the storefront loads.
 
 ## Notes
-- The current UI was preserved.
-- Order submission is now saved in SQLite via the `/api/orders` endpoint.
-- If your GoDaddy plan does not support Node.js, the backend must be hosted elsewhere (for example, Render, Railway, or a VPS), and the domain can still point to the static site.
+- The root `CNAME` file must contain `bunnygiftstore.com` exactly.
+- The root `.htaccess` forces HTTPS on Apache-based hosting.
+- If a security gateway such as Netskope blocks the domain, the site itself may still be deployed correctly and will need allowlisting on that network.
