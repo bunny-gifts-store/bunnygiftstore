@@ -33,7 +33,13 @@ build/
 
 # Server database (contains customer order data — never publish)
 *.db
+*.db-shm
+*.db-wal
 server/*.db
+
+# Uploaded item images (runtime data — keep the folder, ignore contents)
+server/uploads/*
+!server/uploads/.gitkeep
 
 # Logs
 *.log

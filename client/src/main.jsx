@@ -1,14 +1,22 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext.jsx';
+import { CartProvider } from './context/CartContext.jsx';
+import { UIProvider } from './context/UIContext.jsx';
+import App from './App.jsx';
+import './enhancements.css';
 
-function App() {
-  return (
-    <div className="container py-5 text-center">
-      <h1 className="mb-3">Bunny Gift Store</h1>
-      <p className="text-muted">React shell is connected to the existing static storefront.</p>
-      <p className="small text-secondary">Use the existing HTML/CSS/Bootstrap pages for UI. This React entry point is ready for future dynamic components.</p>
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
+          <UIProvider>
+            <App />
+          </UIProvider>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+);

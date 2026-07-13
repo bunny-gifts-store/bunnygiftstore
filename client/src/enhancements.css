@@ -1,0 +1,568 @@
+/* ============================================================
+   Enhancements layer — NEW UI only. The original theme lives in
+   /css/style.css and is left untouched. Everything here reuses the
+   same design tokens so additions feel native to the storefront.
+   ============================================================ */
+
+:root {
+  --bg-primary-color: #1a1a2e;
+  --bg-secondary-color: #7b4397;
+  --bg-accent-color: #dc81a2;
+  --bg-light-purple: #c77dff;
+}
+
+/* ---------- Ultra-slim, theme-coloured overlay scrollbars ----------
+   A thin thumb over a fully transparent track with no buttons, so it reads
+   as floating on the content. Where the browser still supports it, the
+   scroll containers use `overlay` so no gutter is reserved at all. */
+*, html, body {
+  scrollbar-width: thin;                                   /* Firefox */
+  scrollbar-color: var(--bg-light-purple) transparent;
+}
+::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar { width: 5px; height: 5px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; }
+/* remove the classic up/down arrow buttons that reserve extra space */
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--bg-light-purple), var(--bg-accent-color));
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--bg-accent-color), var(--bg-secondary-color));
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Float the scrollbar over the content (no reserved gutter) where supported.
+   NOTE: do NOT include html/body here — `overflow-y: overlay` computes to
+   `auto`, which (combined with overflow-x: clip) turns body into a scroll
+   container and breaks the sticky header. Only inner scrollers are safe. */
+@supports (overflow: overlay) {
+  .modal-body,
+  #productModal .product-modal-body,
+  .modal-dialog-scrollable .modal-body,
+  .table-responsive { overflow-y: overlay; }
+}
+
+/* ---------- Global: never allow horizontal scroll on mobile ----------
+   'clip' (not 'hidden') stops sideways scroll from decorative hero
+   elements without creating a scroll container that would break the
+   sticky navbar. */
+html, body { overflow-x: clip; max-width: 100%; }
+
+/* The decorative hero variants position art near the edges; clip any
+   overflow so nothing pokes past the viewport on small screens. */
+.hero, .hero-about, .hero-contact { overflow: hidden; }
+
+/* Sticky header — reinforce across browsers (webkit prefix for old Safari).
+   Kept sticky in every scenario by ensuring no ancestor becomes a scroll
+   container (see the overlay note above). */
+header {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+/* ---------- Inputs: theme-coloured focus (no Bootstrap blue glow) ---------- */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--bg-light-purple);
+  box-shadow: none;
+  outline: none;
+}
+.form-check-input:checked {
+  background-color: var(--bg-secondary-color);
+  border-color: var(--bg-secondary-color);
+}
+
+/* ---------- Password field with show/hide toggle ---------- */
+.password-field { position: relative; }
+.password-field .form-control { padding-right: 2.9rem; }
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #8a8a99;
+  display: flex;
+  align-items: center;
+}
+.password-toggle:hover { color: var(--bg-secondary-color); }
+
+/* ---------- Order success / confirmation screen ---------- */
+.order-success { padding: 1.5rem 0.5rem 0.75rem; max-width: 480px; margin: 0 auto; }
+.order-success-check {
+  width: 84px; height: 84px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.25rem; color: #fff;
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  box-shadow: 0 10px 25px rgba(199, 125, 255, 0.45);
+  animation: successPop 0.4s ease;
+}
+@keyframes successPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.order-success-title { font-weight: 700; color: #1a1a2e; margin-bottom: 0.25rem; }
+.order-success-number { color: var(--bg-secondary-color); font-weight: 600; margin-bottom: 0.75rem; }
+.order-success-text { color: #6c757d; margin-bottom: 1.5rem; }
+.order-success-actions { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.order-success-actions .btn-primary {
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  border: none; color: #fff; font-weight: 600; min-width: 230px;
+}
+.order-success-actions .btn-link { color: #6c757d; text-decoration: none; }
+
+/* ---------- Navbar user menu ---------- */
+.nav-user-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-user-name { font-weight: 600; }
+.nav-user-caret { font-size: 0.7rem; opacity: 0.85; transition: transform 0.2s; }
+.nav-item.dropdown.show .nav-user-caret { transform: rotate(180deg); }
+.nav-user-toggle .nav-user-avatar { font-size: 1rem; }
+.navbar .dropdown-menu { border: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); }
+.navbar .dropdown-menu .dropdown-item { cursor: pointer; }
+
+/* ---------- Category filter chips ---------- */
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  margin: 0 auto 2.5rem;
+  max-width: 1000px;
+}
+.category-chip {
+  border: 2px solid var(--bg-light-purple);
+  background: #fff;
+  color: var(--bg-secondary-color);
+  padding: 0.45rem 1.1rem;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+.category-chip:hover {
+  background: rgba(199, 125, 255, 0.12);
+}
+.category-chip.active {
+  background: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color));
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ---------- Product Details modal: centered + refined ----------
+   Scoped to #productModal so the base theme (style.css) stays untouched.
+   Only the body scrolls (not the whole card), so the slim scrollbar never
+   runs across the gradient header. */
+#productModal { padding: 1rem; }
+#productModal .product-modal-content {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  width: 92%;
+  max-width: 760px;
+  max-height: 92vh;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 30px 70px rgba(26, 10, 46, 0.45);
+}
+#productModal .product-modal-header {
+  flex-shrink: 0;
+  padding: 1.15rem 1.6rem;
+}
+#productModal .product-modal-header h2 { font-size: 1.3rem; letter-spacing: 0.3px; }
+#productModal .product-modal-body {
+  overflow-y: auto;
+  padding: 1.75rem;
+}
+
+/* Layout: image + details side by side, stacked on small screens */
+#productModal .modal-product-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+@media (max-width: 576px) {
+  #productModal .modal-product-grid { grid-template-columns: 1fr; }
+}
+
+/* Product image in a soft framed card (show the whole product, no crop) */
+#productModal .modal-product-image {
+  height: 300px;
+  object-fit: contain;
+  background: #f7f3fb;
+  padding: 0.85rem;
+  border: 1px solid #ece1f6;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(123, 67, 151, 0.12);
+}
+
+/* Code shown as a subtle pill */
+#productModal .modal-product-code {
+  display: inline-block;
+  background: rgba(199, 125, 255, 0.14);
+  color: var(--bg-secondary-color);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  padding: 0.3rem 0.7rem;
+  border-radius: 50px;
+  margin-bottom: 0.85rem;
+}
+#productModal .modal-product-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.25;
+  margin-bottom: 0.5rem;
+}
+#productModal .modal-product-price {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--bg-secondary-color);
+  margin-bottom: 1rem;
+}
+#productModal .modal-description { color: #6c757d; line-height: 1.7; margin-bottom: 0; }
+
+/* Footer: divider + right-aligned, well-proportioned buttons */
+#productModal .modal-footer {
+  border-top: 1px solid #eef0f3;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+#productModal .modal-footer .btn {
+  min-width: 150px;
+  border-radius: 50px;
+  padding: 0.6rem 1.4rem;
+  font-weight: 600;
+}
+/* neutralise the theme's flex:1 so the primary CTA isn't stretched */
+#productModal .modal-footer .btn-primary { flex: 0 0 auto; margin: 0; }
+#productModal .modal-footer .btn-secondary {
+  background: #fff;
+  border: 1.5px solid var(--bg-light-purple);
+  color: var(--bg-secondary-color);
+}
+#productModal .modal-footer .btn-secondary:hover {
+  background: rgba(199, 125, 255, 0.12);
+  color: var(--bg-secondary-color);
+}
+@media (max-width: 480px) {
+  #productModal .modal-footer { flex-direction: column-reverse; }
+  #productModal .modal-footer .btn { width: 100%; }
+}
+
+/* ---------- Product grid: keep cards a normal size ----------
+   The theme uses auto-fit, which stretches a handful of items to fill
+   the whole row (huge cards when a category has few products). auto-fill
+   keeps the track width fixed so cards stay normal regardless of count.
+   Scoped to >=769px so the theme's single-column mobile layout is kept. */
+@media (min-width: 769px) {
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    justify-content: start;
+  }
+}
+
+/* ---------- Category section heading ---------- */
+.category-block { margin-bottom: 3rem; }
+.category-heading {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--bg-primary-color);
+  margin: 0 0 1.5rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 3px solid;
+  border-image: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color)) 1;
+  display: inline-block;
+}
+
+/* ---------- Out-of-stock badge on product cards ---------- */
+.product-image-wrapper { position: relative; }
+.product-status-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.28rem 0.6rem;
+  border-radius: 6px;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+.product-status-oos { background: #d63031; }
+
+/* ---------- Horizontal scroll on small screens ---------- */
+@media (max-width: 576px) {
+  .category-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .category-heading { font-size: 1.3rem; }
+}
+
+/* ---------- Phone-width typographic tuning ----------
+   Keeps the hero + section titles comfortably inside a 360–414px
+   viewport. Scoped selectors so they win over the base theme rules
+   without editing style.css. */
+@media (max-width: 480px) {
+  .hero-home .hero-home-title { font-size: 1.7rem; line-height: 1.25; }
+  .hero-home .hero-home-subtitle { font-size: 1rem; }
+  .hero-about .hero-about-title,
+  .hero-contact .hero-contact-title { font-size: 1.9rem; line-height: 1.2; }
+  .products-section .section-title { font-size: 1.6rem; }
+  .hero-content { padding-inline: 0.5rem; }
+}
+
+/* ============================================================
+   Customer login / registration gate (full page)
+   ============================================================ */
+.user-login-wrap {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(255, 184, 220, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 25%, rgba(255, 200, 120, 0.20) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 25%, rgba(255, 200, 120, 0.20) 0%, transparent 45%),
+    linear-gradient(180deg, #2a1746 0%, #4a2470 35%, #7b4397 70%, #9a5fb5 100%);
+}
+.user-login-decor { position: absolute; inset: 0; pointer-events: none; }
+.user-login-decor span {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 210, 150, 0.9);
+  box-shadow: 0 0 12px 3px rgba(255, 200, 120, 0.6);
+  animation: userGlow 4s ease-in-out infinite;
+}
+.user-login-decor span:nth-child(odd) { background: rgba(255, 255, 255, 0.85); box-shadow: 0 0 10px 2px rgba(255,255,255,0.5); }
+.user-login-decor span:nth-child(1){left:8%;top:16%}
+.user-login-decor span:nth-child(2){left:20%;top:60%}
+.user-login-decor span:nth-child(3){left:14%;top:38%}
+.user-login-decor span:nth-child(4){left:30%;top:22%}
+.user-login-decor span:nth-child(5){left:40%;top:70%}
+.user-login-decor span:nth-child(6){left:52%;top:14%}
+.user-login-decor span:nth-child(7){left:62%;top:56%}
+.user-login-decor span:nth-child(8){left:72%;top:26%}
+.user-login-decor span:nth-child(9){left:84%;top:64%}
+.user-login-decor span:nth-child(10){left:90%;top:34%}
+.user-login-decor span:nth-child(11){left:6%;top:80%}
+.user-login-decor span:nth-child(12){left:26%;top:86%}
+.user-login-decor span:nth-child(13){left:46%;top:40%}
+.user-login-decor span:nth-child(14){left:66%;top:82%}
+.user-login-decor span:nth-child(15){left:78%;top:8%}
+.user-login-decor span:nth-child(16){left:94%;top:78%}
+.user-login-decor span:nth-child(17){left:36%;top:50%}
+.user-login-decor span:nth-child(18){left:58%;top:34%}
+@keyframes userGlow { 0%,100%{opacity:.4;transform:scale(.8)} 50%{opacity:1;transform:scale(1.15)} }
+
+.user-login-card {
+  position: relative;
+  z-index: 2;
+  background: #fff;
+  border-radius: 18px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+.user-login-brand {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--bg-secondary-color);
+  margin-bottom: 1rem;
+}
+.user-login-card h1 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.4rem; color: #1a1a2e; }
+.user-login-card .subtitle { text-align: center; color: #6c757d; font-size: 0.92rem; margin-bottom: 1.5rem; }
+.user-login-card .btn-primary {
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  border: none; color: #fff; font-weight: 600;
+}
+.user-login-card .btn-link { color: var(--bg-secondary-color); text-decoration: none; font-size: 0.9rem; }
+
+/* ============================================================
+   Admin panel
+   ============================================================ */
+.admin-shell {
+  min-height: 100vh;
+  background: #f4f5fa;
+  font-family: 'Poppins', sans-serif;
+  color: #1a1a2e;
+}
+.admin-topbar {
+  background: linear-gradient(135deg, var(--bg-primary-color) 0%, var(--bg-secondary-color) 100%);
+  color: #fff;
+  padding: 0.9rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+.admin-topbar .admin-brand { font-weight: 700; font-size: 1.15rem; }
+.admin-topbar .admin-brand span { opacity: 0.8; font-weight: 400; font-size: 0.85rem; }
+.admin-nav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.admin-nav a {
+  color: #fff;
+  text-decoration: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.admin-nav a:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+.admin-nav a.active { background: rgba(255, 255, 255, 0.2); opacity: 1; }
+.admin-content { padding: 1.5rem; width: 100%; }
+
+.admin-login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-primary-color) 0%, var(--bg-secondary-color) 100%);
+  padding: 1.5rem;
+}
+.admin-login-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.admin-login-card h1 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.3rem; }
+.admin-login-card .subtitle { text-align: center; color: #6c757d; margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+.admin-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.25rem;
+}
+.admin-stat {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+.admin-stat .num { font-size: 2rem; font-weight: 700; color: var(--bg-secondary-color); }
+.admin-stat .label { color: #6c757d; font-size: 0.85rem; }
+
+/* Product add/edit modal: the <form> wraps the body + footer, which breaks
+   Bootstrap's scrollable layout. display:contents lets the body and footer act
+   as direct flex children of .modal-content again, so the body scrolls and the
+   footer (with the Create/Save button) stays visible. */
+.admin-product-modal .modal-dialog { max-height: calc(100vh - 3.5rem); }
+.admin-product-modal form { display: contents; }
+.admin-product-modal .modal-body { overflow-y: auto; }
+.admin-product-modal .modal-footer { position: sticky; bottom: 0; background: #fff; }
+
+/* Ensure the primary action reads as the theme's primary colour in the admin. */
+.admin-shell .btn-primary,
+.admin-product-modal .btn-primary {
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+.admin-shell .btn-primary:hover,
+.admin-product-modal .btn-primary:hover {
+  filter: brightness(1.05);
+  color: #fff;
+}
+
+/* Order status badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.status-received {
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  color: #fff;
+}
+.status-shipped { background: #f6c343; color: #4a3600; }
+.status-delivered { background: #2e9e4f; color: #fff; }
+
+.order-status-cell { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.order-status-select { max-width: 150px; }
+
+.admin-thumb {
+  width: 48px; height: 48px; object-fit: cover; border-radius: 8px; background: #f0f0f0;
+}
+.admin-table-status { display: flex; gap: 0.75rem; align-items: center; }
+
+/* Order line items with a minimal thumbnail + code */
+.order-items { display: flex; flex-direction: column; gap: 0.5rem; }
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+.order-item-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #f0f0f0;
+  flex: 0 0 auto;
+}
+.order-item-info { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.order-item-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; }
+.order-item-meta { font-size: 0.78rem; color: #6c757d; }
+.order-item-code {
+  font-family: monospace;
+  background: #f0ecf7;
+  color: var(--bg-secondary-color);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.order-item-total { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
+
+/* Small helper so hero-less pages breathe a little under the sticky navbar */
+.page-with-navbar-offset { padding-top: 0.5rem; }
