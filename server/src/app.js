@@ -16,8 +16,9 @@ seedDatabase();
 const app = express();
 app.set('trust proxy', 1);
 
-// CORS: restrict to configured origins in prod, allow all in dev.
-app.use(cors(config.corsOrigins.length ? { origin: config.corsOrigins } : {}));
+// CORS: the API uses bearer-token auth (no cookies), so reflecting any origin
+// is safe. This avoids http/https/www mismatches from the static frontend host.
+app.use(cors({ origin: true }));
 app.use(express.json({ limit: '1mb' }));
 
 // Basic rate limiting on auth to slow brute-force on the admin login.
