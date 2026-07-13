@@ -10,25 +10,26 @@ workflow (`.github/workflows/pages.yml`), and `client/public/CNAME`.
 
 ---
 
-## Step 1 — Deploy the backend to Render
+## Step 1 — Deploy the backend to Render (free)
 
-1. Go to <https://render.com> and sign up (free) / log in.
-2. **New +** -> **Blueprint** -> connect your GitHub and pick
-   `bunny-gifts-store/bunnygiftstore`.
+One-click:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/bunny-gifts-store/bunnygiftstore)
+
+1. Click the button above (or go to <https://render.com>).
+2. **Sign up / log in** — easiest is "Sign in with GitHub" (no card needed).
 3. Render reads `render.yaml` and shows the `bunnygiftstore-api` service.
-4. Set the one secret it asks for:
-   - `ADMIN_PASSWORD` = a strong admin password of your choice.
-   - (`JWT_SECRET` is auto-generated; `CORS_ORIGINS` and DB paths are preset.)
-5. **Apply / Create**. Wait for the first deploy to finish (a few minutes).
-6. Copy the service URL, e.g. `https://bunnygiftstore-api.onrender.com`.
-7. Verify it's live: open `https://<your-render-url>/api/health` — you should
-   see `{"ok":true,...}`.
+4. It asks for one value: **`ADMIN_PASSWORD`** — type a strong admin password
+   (you'll use it to log into `/admin`). Everything else is preset.
+5. Click **Apply / Deploy** and wait a few minutes for the first build.
+6. Copy the service URL at the top, e.g. `https://bunnygiftstore-api.onrender.com`.
+7. Verify: open `https://<your-render-url>/api/health` — you should see
+   `{"ok":true,...}`.
 
-> Persistence: the blueprint mounts a 1 GB disk at `/data` for the SQLite DB +
-> uploads. That needs a **paid** Render instance (~$7/mo) but keeps your users
-> and orders across restarts. For a free test, remove the `disk:` block (and the
-> `DB_PATH`/`UPLOADS_DIR` vars) in `render.yaml` — but data resets on redeploy,
-> and free instances sleep after inactivity (first request is slow).
+> Free tier notes: the service **sleeps after ~15 min idle** (first request then
+> takes ~50s to wake), and its storage is **ephemeral** (DB + uploads reset on
+> restart). Fine for testing. Before taking real orders, upgrade to a paid disk
+> — see the commented block in `render.yaml`.
 
 ## Step 2 — Point the frontend at the backend
 
