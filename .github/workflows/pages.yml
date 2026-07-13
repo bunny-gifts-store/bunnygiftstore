@@ -1,8 +1,11 @@
-name: Deploy to GitHub Pages
+name: Deploy React app to GitHub Pages
 
+# Manual trigger only. Run this AFTER:
+#   1) the backend is live on Render, and
+#   2) the repo Variable VITE_API_BASE is set to the Render URL.
+# (Kept manual so the currently-live site isn't overwritten before the
+#  backend + API URL are ready.)
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +13,6 @@ permissions:
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -21,24 +23,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Assemble ONLY the public static storefront.
-      # The server/ backend, client/ React stub, node_modules and the
-      # SQLite database are intentionally excluded so they are never
-      # published or exposed.
-      - name: Assemble static site
-        run: |
-          mkdir _site
-          cp index.html _site/
-          cp CNAME _site/ 2>/dev/null || true
-          cp -r css _site/
-          cp -r js _site/
-          cp -r images _site/
-          cp -r pages _site/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Upload artifact
+      - name: Install & build the React client
+        working-directory: client
+        env:
+          # Set this repo Variable to your Render API URL, e.g.
+          # https://bunnygiftstore-api.onrender.com
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: SPA fallback + Pages metadata
+        working-directory: client/dist
+        run: |
+          cp index.html 404.html   # let React Router handle deep links
+          touch .nojekyll           # don't run Jekyll on the build output
+          # CNAME is copied from client/public/CNAME automatically
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./_site
+          path: client/dist
 
   deploy:
     needs: build

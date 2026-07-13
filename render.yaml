@@ -1,0 +1,36 @@
+# Render Blueprint — Bunny Gift Store API (Node/Express + SQLite)
+# Deploy: Render Dashboard -> New + -> Blueprint -> connect this GitHub repo.
+# Render reads this file and provisions the service below.
+
+services:
+  - type: web
+    name: bunnygiftstore-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true        # Render generates a strong secret
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false                # set your own value in the Render dashboard
+      - key: CORS_ORIGINS
+        value: https://bunnygiftsstore.com,https://www.bunnygiftsstore.com
+      - key: DB_PATH
+        value: /data/bunnystore.db
+      - key: UPLOADS_DIR
+        value: /data/uploads
+
+    # Persistent storage for the SQLite database + uploaded product images.
+    # NOTE: a disk requires a paid instance (from ~$7/mo). It is REQUIRED to
+    # keep users/orders across restarts and redeploys.
+    # For a FREE test only, delete this `disk:` block and the DB_PATH /
+    # UPLOADS_DIR vars above — but then all data resets on every restart.
+    disk:
+      name: bunny-data
+      mountPath: /data
+      sizeGB: 1
