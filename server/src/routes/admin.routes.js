@@ -6,6 +6,8 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler } from '../helpers.js';
+import { isValidStatus, isValidPaymentStatus } from '../orderStatus.js';
+import { serializeOrder } from './orders.routes.js';
 
 const router = Router();
 router.use(requireAuth('admin'));
@@ -168,27 +170,52 @@ router.delete('/products/:id', asyncHandler((req, res) => {
 }));
 
 // ---- Orders (admin view) ----
-const ORDER_STATUSES = ['received', 'shipped', 'delivered'];
-
 router.get('/orders', asyncHandler((_req, res) => {
   const rows = db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
-  res.json(rows.map((o) => ({ ...o, status: o.status || 'received', items: o.items ? safeParse(o.items) : null })));
+  res.json(rows.map(serializeOrder));
 }));
 
-// PATCH /api/admin/orders/:id/status  { status }
+// PATCH /api/admin/orders/:id  { status?, deliveryDay?, deliveryDate?, paymentStatus? }
+// Unified order update: any subset of fields may be sent. Only admins reach here
+// (router.use(requireAuth('admin')) above), and every change is persisted so the
+// customer's My Orders page reflects it on its next refresh.
+router.patch('/orders/:id', asyncHandler((req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Order not found.' });
+
+  const { status, deliveryDay, deliveryDate, paymentStatus } = req.body;
+  const updates = {};
+
+  if (status !== undefined) {
+    if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
+    updates.status = String(status).toLowerCase();
+  }
+  if (paymentStatus !== undefined) {
+    if (!isValidPaymentStatus(paymentStatus)) return res.status(400).json({ error: 'Invalid payment status.' });
+    updates.paymentStatus = String(paymentStatus).toLowerCase();
+  }
+  if (deliveryDay !== undefined) updates.deliveryDay = String(deliveryDay || '').trim() || null;
+  if (deliveryDate !== undefined) updates.deliveryDate = String(deliveryDate || '').trim() || null;
+
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+
+  const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
+  db.prepare(`UPDATE orders SET ${setClause} WHERE id = @id`).run({ ...updates, id });
+
+  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+}));
+
+// Back-compat: dedicated status endpoint delegates to the same logic.
 router.patch('/orders/:id/status', asyncHandler((req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body.status || '').toLowerCase();
-  if (!ORDER_STATUSES.includes(status)) {
-    return res.status(400).json({ error: 'Invalid status.' });
-  }
+  if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
   const existing = db.prepare('SELECT id FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
-  const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-  res.json({ ...row, status: row.status || 'received', items: row.items ? safeParse(row.items) : null });
+  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
-
-function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
 
 export default router;

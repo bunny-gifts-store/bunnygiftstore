@@ -48,6 +48,8 @@ export const loginUser = (payload) => api.post('/auth/login', payload).then((r) 
 
 // ---- Orders ----
 export const placeOrder = (payload) => api.post('/orders', payload).then((r) => r.data);
+// Customer's own orders (requires a logged-in user token).
+export const fetchMyOrders = () => api.get('/orders/mine').then((r) => r.data);
 
 // ---- Admin ----
 export const adminLogin = (payload) => api.post('/admin/login', payload).then((r) => r.data);
@@ -69,5 +71,7 @@ export const adminUploadImage = (file) => {
   return api.post('/admin/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 };
 export const adminFetchOrders = () => api.get('/admin/orders').then((r) => r.data);
-export const adminUpdateOrderStatus = (id, status) =>
-  api.patch(`/admin/orders/${id}/status`, { status }).then((r) => r.data);
+// Unified order update: pass any subset of { status, deliveryDay, deliveryDate, paymentStatus }.
+export const adminUpdateOrder = (id, patch) =>
+  api.patch(`/admin/orders/${id}`, patch).then((r) => r.data);
+export const adminUpdateOrderStatus = (id, status) => adminUpdateOrder(id, { status });

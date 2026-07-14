@@ -1,13 +1,9 @@
-const LABELS = {
-  received: 'Order Received',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-};
+import { normalizeStatus, statusLabel, ORDER_STATUS_LABELS } from '../orderStatus.js';
 
-// Colored, rounded status badge. received=theme, shipped=yellow, delivered=green.
+// Colored, rounded status badge driven by the shared status vocabulary.
 export default function OrderStatusBadge({ status }) {
-  const s = LABELS[status] ? status : 'received';
-  return <span className={`status-badge status-${s}`}>{LABELS[s]}</span>;
+  const s = normalizeStatus(status);
+  return <span className={`status-badge status-${s}`}>{statusLabel(s)}</span>;
 }
 
-export const ORDER_STATUS_LABELS = LABELS;
+export { ORDER_STATUS_LABELS };

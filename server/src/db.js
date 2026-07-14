@@ -63,7 +63,10 @@ db.exec(`
     totalAmount   REAL NOT NULL,
     totalItems    INTEGER NOT NULL,
     items         TEXT,             -- JSON snapshot of cart items
-    status        TEXT DEFAULT 'received',  -- received | shipped | delivered
+    status        TEXT DEFAULT 'pending',  -- pending|confirmed|processing|packed|out_for_delivery|delivered|cancelled
+    paymentStatus TEXT DEFAULT 'paid',     -- paid | pending | failed | refunded
+    deliveryDay   TEXT,             -- owner's planned delivery day, e.g. "Monday" or "3-5 days"
+    deliveryDate  TEXT,             -- owner's planned delivery date, e.g. "2026-07-20"
     createdAt     TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -80,7 +83,17 @@ if (!orderCols.includes('items')) {
   db.exec(`ALTER TABLE orders ADD COLUMN items TEXT`);
 }
 if (!orderCols.includes('status')) {
-  db.exec(`ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'received'`);
+  db.exec(`ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'pending'`);
+}
+// Order-management additions (payment + delivery scheduling).
+if (!orderCols.includes('paymentStatus')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN paymentStatus TEXT DEFAULT 'paid'`);
+}
+if (!orderCols.includes('deliveryDay')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN deliveryDay TEXT`);
+}
+if (!orderCols.includes('deliveryDate')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN deliveryDate TEXT`);
 }
 
 export default db;

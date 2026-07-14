@@ -3,7 +3,7 @@ import { useUI } from '../context/UIContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { placeOrder, apiError } from '../api.js';
-import { formatPrice, resolveImage } from '../utils.js';
+import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
 
 const EMPTY_FORM = { name: '', email: '', phone: '', pincode: '', address: '', city: '', state: '' };
 
@@ -135,7 +135,7 @@ function OrderSuccess({ orderNumber }) {
         </svg>
       </div>
       <h3 className="order-success-title">Order Placed Successfully! 🎉</h3>
-      {orderNumber && <p className="order-success-number">Order #{orderNumber}</p>}
+      {orderNumber && <p className="order-success-number">Order {formatOrderNo(orderNumber)}</p>}
       <p className="order-success-text">
         Thank you for shopping with Bunny Gift Store. Your order and payment details have been
         received. We'll process it right away.

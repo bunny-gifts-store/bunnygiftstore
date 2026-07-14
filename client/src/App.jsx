@@ -12,6 +12,7 @@ import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 import PhotoFrames from './pages/PhotoFrames.jsx';
 import AllGifts from './pages/AllGifts.jsx';
+import MyOrders from './pages/MyOrders.jsx';
 import Policy from './pages/Policy.jsx';
 import AdminApp from './admin/AdminApp.jsx';
 
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/contact" element={<StorefrontLayout><Contact /></StorefrontLayout>} />
         <Route path="/photo-frames" element={<StorefrontLayout><PhotoFrames /></StorefrontLayout>} />
         <Route path="/all-gifts" element={<StorefrontLayout><AllGifts /></StorefrontLayout>} />
+        <Route path="/my-orders" element={<StorefrontLayout><MyOrders /></StorefrontLayout>} />
         <Route path="/privacy-policy" element={<StorefrontLayout><Policy slug="privacy-policy" /></StorefrontLayout>} />
         <Route path="/shipping-policy" element={<StorefrontLayout><Policy slug="shipping-policy" /></StorefrontLayout>} />
         <Route path="/terms" element={<StorefrontLayout><Policy slug="terms" /></StorefrontLayout>} />

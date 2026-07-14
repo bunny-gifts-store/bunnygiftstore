@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   adminFetchProducts, adminFetchCategories, adminFetchOrders, adminUpdateOrderStatus, apiError,
 } from '../api.js';
-import { formatPrice, buildOrderSerials, formatOrderNo } from '../utils.js';
+import { formatPrice, formatOrderNo } from '../utils.js';
 import OrderStatusBadge from './OrderStatusBadge.jsx';
 
 export default function Dashboard() {
@@ -34,7 +34,6 @@ export default function Dashboard() {
   // Derived, so every count/section updates instantly when a status changes.
   const deliveredCount = useMemo(() => orders.filter((o) => o.status === 'delivered').length, [orders]);
   const recentOrders = useMemo(() => orders.filter((o) => o.status !== 'delivered').slice(0, 10), [orders]);
-  const serials = useMemo(() => buildOrderSerials(orders), [orders]);
 
   const markDelivered = async (id) => {
     setBusyId(id);
@@ -92,7 +91,7 @@ export default function Dashboard() {
               <tbody>
                 {recentOrders.map((o) => (
                   <tr key={o.id}>
-                    <td className="fw-semibold">{formatOrderNo(serials[o.id])}</td>
+                    <td className="fw-semibold">{formatOrderNo(o.id)}</td>
                     <td>{o.name}</td>
                     <td>{o.phone}</td>
                     <td>{formatPrice(o.totalAmount)}</td>

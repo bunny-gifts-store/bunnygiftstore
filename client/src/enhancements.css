@@ -517,15 +517,96 @@ header {
   white-space: nowrap;
   line-height: 1.2;
 }
-.status-received {
-  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+/* Lifecycle statuses (received/shipped kept as legacy aliases). */
+.status-received,
+.status-pending { background: #eceff4; color: #414a5c; }
+.status-confirmed { background: #d6e4ff; color: #1d3f8a; }
+.status-processing { background: #dbe9ff; color: #1657c9; }
+.status-packed { background: #e7dcff; color: #5b32b8; }
+.status-shipped,
+.status-out_for_delivery {
+  background: linear-gradient(135deg, var(--bg-light-purple, #b98bff) 0%, var(--bg-accent-color, #7c3aed) 100%);
   color: #fff;
 }
-.status-shipped { background: #f6c343; color: #4a3600; }
 .status-delivered { background: #2e9e4f; color: #fff; }
+.status-cancelled { background: #fbdcdc; color: #a12020; }
 
 .order-status-cell { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
-.order-status-select { max-width: 150px; }
+.order-status-select { max-width: 160px; }
+
+/* Payment status chips + admin select accents */
+.payment-chip {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.payment-paid { background: #dff3e4; color: #1c7a3d; }
+.payment-pending { background: #fff2d6; color: #8a5b00; }
+.payment-failed { background: #fbdcdc; color: #a12020; }
+.payment-refunded { background: #e5e7eb; color: #475569; }
+
+/* ---- My Orders page ---- */
+.my-orders-list { display: flex; flex-direction: column; gap: 1.25rem; }
+.my-order-card {
+  border: 1px solid #ececf2;
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(31, 20, 60, 0.05);
+}
+.my-order-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 0.9rem;
+}
+.my-order-no { font-weight: 800; font-size: 1.05rem; }
+.my-order-date { color: #7a7a86; font-size: 0.85rem; }
+.my-order-badges { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Progress tracker */
+.status-tracker {
+  list-style: none; display: flex; gap: 0; margin: 0.5rem 0 1.1rem; padding: 0;
+  counter-reset: step; overflow-x: auto;
+}
+.tracker-step {
+  flex: 1 1 0; min-width: 84px; position: relative;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.35rem;
+}
+.tracker-step::before {
+  content: ''; position: absolute; top: 13px; left: -50%; width: 100%; height: 3px;
+  background: #e6e6ee; z-index: 0;
+}
+.tracker-step:first-child::before { display: none; }
+.tracker-dot {
+  position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.75rem; font-weight: 700;
+  background: #e6e6ee; color: #8a8a96;
+}
+.tracker-label { font-size: 0.72rem; color: #8a8a96; line-height: 1.15; }
+.tracker-done .tracker-dot { background: #2e9e4f; color: #fff; }
+.tracker-done::before { background: #2e9e4f; }
+.tracker-current .tracker-dot {
+  background: var(--bg-accent-color, #7c3aed); color: #fff;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.18);
+}
+.tracker-current::before { background: #2e9e4f; }
+.tracker-current .tracker-label { color: var(--bg-accent-color, #7c3aed); font-weight: 700; }
+
+.my-order-foot {
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  border-top: 1px solid #f0f0f5; padding-top: 0.9rem; margin-top: 0.4rem;
+}
+.my-order-facts { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.my-order-facts > div, .my-order-ship { display: flex; flex-direction: column; }
+.fact-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: #9a9aa6; }
+.fact-value { font-weight: 600; font-size: 0.92rem; }
+.my-order-ship { max-width: 320px; }
+
+.delivery-editor {
+  border: 1px dashed #d9d9e3; border-radius: 10px; padding: 0.75rem 0.9rem; background: #fff;
+}
 
 .admin-thumb {
   width: 48px; height: 48px; object-fit: cover; border-radius: 8px; background: #f0f0f0;

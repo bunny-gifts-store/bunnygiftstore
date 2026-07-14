@@ -15,17 +15,11 @@ export function displayPrice(product) {
   return 'Price on request';
 }
 
-// Build a map of order id -> sequential serial number (1-based, by creation
-// order) so orders display as continuous 0001, 0002, … without gaps.
-export function buildOrderSerials(orders) {
-  const map = {};
-  [...orders].sort((a, b) => a.id - b.id).forEach((o, i) => { map[o.id] = i + 1; });
-  return map;
-}
-
-// Zero-padded order number, e.g. 3 -> "#0003".
-export function formatOrderNo(serial) {
-  return `#${String(serial || 0).padStart(4, '0')}`;
+// Branded order number from the order's database id, e.g. 1 -> "#BGS001".
+// Using the raw id keeps the order number identical across the admin panel and
+// the customer's My Orders page (a shared serial couldn't be computed per-user).
+export function formatOrderNo(id) {
+  return `#BGS${String(id || 0).padStart(3, '0')}`;
 }
 
 // Resolve a stored image path to a browser URL.
