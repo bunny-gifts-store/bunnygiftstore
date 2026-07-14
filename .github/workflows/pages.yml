@@ -1,11 +1,12 @@
 name: Deploy React app to GitHub Pages
 
-# Manual trigger only. Run this AFTER:
-#   1) the backend is live on Render, and
-#   2) the repo Variable VITE_API_BASE is set to the Render URL.
-# (Kept manual so the currently-live site isn't overwritten before the
-#  backend + API URL are ready.)
+# Deploys the React client to GitHub Pages.
+# The backend is live on Render and client/src/config.js defaults the API base
+# to it, so no repo Variable is strictly required. To override the API URL,
+# set the repo Variable VITE_API_BASE.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
