@@ -71,6 +71,8 @@ export default function CartModal() {
       setOrderNumber(res.id);
       clear();
       setStep('success');
+      // Let an open "My Orders" page refresh right away instead of waiting for its poll.
+      window.dispatchEvent(new Event('bunny:order-placed'));
     } catch (err) {
       setError(apiError(err, 'Unable to save the order right now.'));
     } finally {

@@ -41,7 +41,18 @@ router.post('/', asyncHandler((req, res) => {
     return res.status(400).json({ error: 'Missing required order fields' });
   }
 
-  const userId = optionalUser(req);
+  // Prefer the logged-in user's id from the token. If that's unavailable
+  // (missing/expired token), fall back to matching the order's phone against a
+  // registered user's mobile — identity in this store IS the mobile number, so
+  // this guarantees the order shows up in that customer's "My Orders".
+  let userId = optionalUser(req);
+  if (!userId) {
+    const digits = String(phone || '').replace(/[^\d]/g, '').slice(-10);
+    if (digits.length === 10) {
+      const match = db.prepare('SELECT id FROM users WHERE mobile = ?').get(digits);
+      if (match) userId = match.id;
+    }
+  }
   const info = db.prepare(`
     INSERT INTO orders
       (userId, name, email, phone, address, city, state, pincode, transactionId,

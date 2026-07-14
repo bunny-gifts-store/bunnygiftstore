@@ -38,10 +38,12 @@ export default function MyOrders() {
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('bunny:order-placed', load);
     return () => {
       clearInterval(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('bunny:order-placed', load);
     };
   }, [load]);
 
