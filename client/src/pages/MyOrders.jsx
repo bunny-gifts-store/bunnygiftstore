@@ -6,6 +6,7 @@ import {
   normalizeStatus,
   statusLabel,
   paymentLabel,
+  refundLabel,
 } from '../orderStatus.js';
 import OrderStatusBadge from '../admin/OrderStatusBadge.jsx';
 
@@ -73,23 +74,54 @@ export default function MyOrders() {
 function OrderCard({ order: o }) {
   const status = normalizeStatus(o.status);
   const cancelled = status === 'cancelled';
+  // A refund is only "confirmed" for the customer once the admin marks it
+  // Successful AND records a UTR / transaction number. Until then we don't
+  // surface any refund status to the user.
+  const refundConfirmed =
+    cancelled && o.refundStatus === 'successful' && !!(o.refundNote || '').trim();
   const placed = new Date(o.createdAt);
 
   return (
     <article className="my-order-card">
       <header className="my-order-head">
-        <div>
+        <div className="my-order-headmain">
           <div className="my-order-no">Order {formatOrderNo(o.id)}</div>
           <div className="my-order-date">Placed on {placed.toLocaleDateString()} · {placed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
         </div>
+
+        {refundConfirmed && (
+          <div className="my-order-refund refund-successful">
+            <span className="mor-label">Refund Status</span>
+            <span className="mor-sep">:</span>
+            <span className="mor-value">{refundLabel(o.refundStatus)}</span>
+            <span className="mor-sep">·</span>
+            <span className="mor-label">TXN ID</span>
+            <span className="mor-sep">:</span>
+            <span className="mor-txn">{o.refundNote}</span>
+          </div>
+        )}
+
         <div className="my-order-badges">
           <OrderStatusBadge status={status} />
-          <span className={`payment-chip payment-${o.paymentStatus || 'paid'}`}>{paymentLabel(o.paymentStatus)}</span>
+          {/* Once the refund is confirmed (Successful + UTR), the "Paid" chip is dropped. */}
+          {!refundConfirmed && (
+            <span className={`payment-chip payment-${o.paymentStatus || 'paid'}`}>{paymentLabel(o.paymentStatus)}</span>
+          )}
         </div>
       </header>
 
       {!cancelled && <StatusTracker status={status} />}
-      {cancelled && <div className="alert alert-secondary py-2 my-2 mb-3">This order has been cancelled.</div>}
+      {cancelled && (
+        <div className="cancelled-banner" role="status">
+          <div className="cancelled-stamp">
+            <span className="cancelled-label">CANCELLED</span>
+          </div>
+          <span className="cancelled-sub">This order has been cancelled.</span>
+          {o.cancellationReason && (
+            <span className="cancelled-reason"><strong>Reason:</strong> {o.cancellationReason}</span>
+          )}
+        </div>
+      )}
 
       <div className="my-order-body">
         {Array.isArray(o.items) && o.items.length > 0 && (
@@ -115,12 +147,22 @@ function OrderCard({ order: o }) {
         <div className="my-order-facts">
           <div><span className="fact-label">Total</span><span className="fact-value">{formatPrice(o.totalAmount)}</span></div>
           <div><span className="fact-label">Payment</span><span className="fact-value">{paymentLabel(o.paymentStatus)}</span></div>
-          <div><span className="fact-label">Delivery Day</span><span className="fact-value">{o.deliveryDay || 'To be scheduled'}</span></div>
-          <div><span className="fact-label">Delivery Date</span><span className="fact-value">{formatDeliveryDate(o.deliveryDate)}</span></div>
+          {cancelled ? (
+            <div><span className="fact-label">Delivery</span><span className="fact-value text-muted">Cancelled</span></div>
+          ) : (
+            <>
+              <div><span className="fact-label">Delivery Day</span><span className="fact-value">{o.deliveryDay || 'To be scheduled'}</span></div>
+              <div><span className="fact-label">Delivery Date</span><span className="fact-value">{formatDeliveryDate(o.deliveryDate)}</span></div>
+            </>
+          )}
         </div>
         <div className="my-order-ship">
           <span className="fact-label">Deliver to</span>
-          <span className="fact-value">{o.address}, {o.city}, {o.state} - {o.pincode}</span>
+          {refundConfirmed ? (
+            <span className="fact-value back-to-store">Back to Store</span>
+          ) : (
+            <span className="fact-value">{o.address}, {o.city}, {o.state} - {o.pincode}</span>
+          )}
         </div>
       </footer>
     </article>

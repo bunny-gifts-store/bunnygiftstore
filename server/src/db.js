@@ -67,6 +67,10 @@ db.exec(`
     paymentStatus TEXT DEFAULT 'paid',     -- paid | pending | failed | refunded
     deliveryDay   TEXT,             -- owner's planned delivery day, e.g. "Monday" or "3-5 days"
     deliveryDate  TEXT,             -- owner's planned delivery date, e.g. "2026-07-20"
+    refundStatus  TEXT,             -- for cancelled orders: pending|successful|failed (manual refund)
+    refundNote    TEXT,             -- optional refund transaction details / note
+    refundUpdatedAt TEXT,           -- when the refund status was last set by the admin
+    cancellationReason TEXT,        -- required when an order is cancelled
     createdAt     TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -94,6 +98,20 @@ if (!orderCols.includes('deliveryDay')) {
 }
 if (!orderCols.includes('deliveryDate')) {
   db.exec(`ALTER TABLE orders ADD COLUMN deliveryDate TEXT`);
+}
+// Refund management for cancelled orders (refund is processed manually
+// outside the system, e.g. via the owner's PhonePe, and recorded here).
+if (!orderCols.includes('refundStatus')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN refundStatus TEXT`);
+}
+if (!orderCols.includes('refundNote')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN refundNote TEXT`);
+}
+if (!orderCols.includes('refundUpdatedAt')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN refundUpdatedAt TEXT`);
+}
+if (!orderCols.includes('cancellationReason')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN cancellationReason TEXT`);
 }
 
 export default db;

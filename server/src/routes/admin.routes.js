@@ -6,7 +6,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler } from '../helpers.js';
-import { isValidStatus, isValidPaymentStatus } from '../orderStatus.js';
+import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus } from '../orderStatus.js';
 import { serializeOrder } from './orders.routes.js';
 
 const router = Router();
@@ -175,7 +175,7 @@ router.get('/orders', asyncHandler((_req, res) => {
   res.json(rows.map(serializeOrder));
 }));
 
-// PATCH /api/admin/orders/:id  { status?, deliveryDay?, deliveryDate?, paymentStatus? }
+// PATCH /api/admin/orders/:id  { status?, deliveryDay?, deliveryDate?, paymentStatus?, refundStatus?, refundNote? }
 // Unified order update: any subset of fields may be sent. Only admins reach here
 // (router.use(requireAuth('admin')) above), and every change is persisted so the
 // customer's My Orders page reflects it on its next refresh.
@@ -184,12 +184,28 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
 
-  const { status, deliveryDay, deliveryDate, paymentStatus } = req.body;
+  // Cancelled is terminal AND fully locked: once an order has been committed as
+  // cancelled, nothing about it (status, reason, refund, UTR, delivery) may
+  // change. The single PATCH that first cancels the order is still allowed
+  // because at that point the stored status is not yet 'cancelled'.
+  if (normalizeStatus(existing.status) === 'cancelled') {
+    return res.status(409).json({ error: 'This order is cancelled and locked; it can no longer be modified.' });
+  }
+
+  const { status, deliveryDay, deliveryDate, paymentStatus, refundStatus, refundNote, cancellationReason } = req.body;
   const updates = {};
 
   if (status !== undefined) {
     if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
-    updates.status = String(status).toLowerCase();
+    const nextStatus = String(status).toLowerCase();
+    if (nextStatus === 'cancelled') {
+      // A cancellation reason is mandatory (may arrive in this same request).
+      const reason = (cancellationReason !== undefined ? cancellationReason : existing.cancellationReason) || '';
+      if (!String(reason).trim()) {
+        return res.status(400).json({ error: 'A cancellation reason is required to cancel an order.' });
+      }
+    }
+    updates.status = nextStatus;
   }
   if (paymentStatus !== undefined) {
     if (!isValidPaymentStatus(paymentStatus)) return res.status(400).json({ error: 'Invalid payment status.' });
@@ -197,6 +213,20 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   }
   if (deliveryDay !== undefined) updates.deliveryDay = String(deliveryDay || '').trim() || null;
   if (deliveryDate !== undefined) updates.deliveryDate = String(deliveryDate || '').trim() || null;
+  if (cancellationReason !== undefined) {
+    updates.cancellationReason = String(cancellationReason || '').trim() || null;
+  }
+
+  // Refund fields (used for cancelled orders; refund is done manually via PhonePe etc.).
+  if (refundStatus !== undefined) {
+    if (!isValidRefundStatus(refundStatus)) return res.status(400).json({ error: 'Invalid refund status.' });
+    updates.refundStatus = String(refundStatus || '').toLowerCase() || null;
+  }
+  if (refundNote !== undefined) updates.refundNote = String(refundNote || '').trim() || null;
+  // Stamp the refund update time whenever any refund field changes.
+  if (refundStatus !== undefined || refundNote !== undefined) {
+    updates.refundUpdatedAt = new Date().toISOString();
+  }
 
   const keys = Object.keys(updates);
   if (keys.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
@@ -212,8 +242,11 @@ router.patch('/orders/:id/status', asyncHandler((req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body.status || '').toLowerCase();
   if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
-  const existing = db.prepare('SELECT id FROM orders WHERE id = ?').get(id);
+  const existing = db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
+  if (normalizeStatus(existing.status) === 'cancelled' && status !== 'cancelled') {
+    return res.status(409).json({ error: 'This order is cancelled; its status can no longer be changed.' });
+  }
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));

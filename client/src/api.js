@@ -10,7 +10,7 @@ api.interceptors.request.use((cfg) => {
   const isAdmin = url.startsWith('/admin');
   const token = isAdmin
     ? localStorage.getItem('bunnyAdminToken')
-    : localStorage.getItem('bunnyUserToken');
+    : sessionStorage.getItem('bunnyUserToken');
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });

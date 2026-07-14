@@ -51,3 +51,16 @@ export const PAYMENT_STATUS_LABELS = {
 export function paymentLabel(status) {
   return PAYMENT_STATUS_LABELS[String(status || '').toLowerCase()] || 'Paid';
 }
+
+// ---- Refunds (cancelled orders) ----
+export const REFUND_STATUS_OPTIONS = ['pending', 'successful', 'failed'];
+
+export const REFUND_STATUS_LABELS = {
+  pending: 'Refund Pending',
+  successful: 'Refund Successful',
+  failed: 'Refund Failed',
+};
+
+export function refundLabel(status) {
+  return REFUND_STATUS_LABELS[String(status || '').toLowerCase()] || '';
+}

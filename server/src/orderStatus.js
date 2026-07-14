@@ -13,6 +13,9 @@ export const ORDER_STATUSES = [
 
 export const PAYMENT_STATUSES = ['paid', 'pending', 'failed', 'refunded'];
 
+// Refund lifecycle for cancelled orders. An empty value means "not set yet".
+export const REFUND_STATUSES = ['pending', 'successful', 'failed'];
+
 // Older databases used a 3-state model; map those to the new lifecycle so
 // existing orders keep displaying (and tracking) correctly.
 const LEGACY_STATUS = { received: 'pending', shipped: 'out_for_delivery' };
@@ -29,4 +32,11 @@ export function isValidStatus(value) {
 
 export function isValidPaymentStatus(value) {
   return PAYMENT_STATUSES.includes(String(value || '').toLowerCase());
+}
+
+// An empty refund status is allowed (clears the field); otherwise it must be
+// one of the known refund states.
+export function isValidRefundStatus(value) {
+  const v = String(value || '').toLowerCase();
+  return v === '' || REFUND_STATUSES.includes(v);
 }

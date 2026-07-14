@@ -4,6 +4,7 @@ import {
   adminFetchProducts, adminFetchCategories, adminFetchOrders, adminUpdateOrderStatus, apiError,
 } from '../api.js';
 import { formatPrice, formatOrderNo } from '../utils.js';
+import { ORDER_STATUS_OPTIONS, ORDER_STATUS_LABELS } from '../orderStatus.js';
 import OrderStatusBadge from './OrderStatusBadge.jsx';
 
 export default function Dashboard() {
@@ -32,8 +33,15 @@ export default function Dashboard() {
   }, []);
 
   // Derived, so every count/section updates instantly when a status changes.
-  const deliveredCount = useMemo(() => orders.filter((o) => o.status === 'delivered').length, [orders]);
-  const recentOrders = useMemo(() => orders.filter((o) => o.status !== 'delivered').slice(0, 10), [orders]);
+  const recentOrders = useMemo(
+    () => orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').slice(0, 10),
+    [orders],
+  );
+  const statusCounts = useMemo(() => {
+    const m = Object.fromEntries(ORDER_STATUS_OPTIONS.map((s) => [s, 0]));
+    for (const o of orders) if (m[o.status] !== undefined) m[o.status] += 1;
+    return m;
+  }, [orders]);
 
   const markDelivered = async (id) => {
     setBusyId(id);
@@ -48,13 +56,19 @@ export default function Dashboard() {
     }
   };
 
-  const stats = [
+  const catalogStats = [
     { num: counts.products, label: 'Products', to: '/admin/products' },
     { num: counts.categories, label: 'Categories', to: '/admin/categories' },
-    { num: orders.length, label: 'Orders', to: '/admin/orders' },
-    { num: deliveredCount, label: 'Delivered Orders', to: '/admin/orders' },
     { num: counts.outOfStock, label: 'Out of Stock', to: '/admin/products?filter=oos' },
     { num: counts.unavailable, label: 'Unavailable', to: '/admin/products?filter=unavailable' },
+  ];
+
+  // Total + one card per order status; each opens the Orders page pre-filtered.
+  const orderStats = [
+    { num: orders.length, label: 'Total Orders', to: '/admin/orders', key: 'all' },
+    ...ORDER_STATUS_OPTIONS.map((s) => ({
+      num: statusCounts[s], label: ORDER_STATUS_LABELS[s], to: `/admin/orders?status=${s}`, key: s,
+    })),
   ];
 
   return (
@@ -62,11 +76,27 @@ export default function Dashboard() {
       <h2 className="mb-4">Dashboard</h2>
       {error && <div className="alert alert-danger">{error}</div>}
 
+      <h6 className="admin-section-title">Catalog</h6>
       <div className="row g-3 mb-4">
-        {stats.map((s) => (
-          <div className="col-6 col-md-4 col-lg-2" key={s.label}>
+        {catalogStats.map((s) => (
+          <div className="col-6 col-md-3" key={s.label}>
             <Link to={s.to} className="text-decoration-none">
               <div className="admin-stat">
+                <div className="num">{s.num}</div>
+                <div className="label">{s.label}</div>
+              </div>
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <h6 className="admin-section-title">Orders</h6>
+      <div className="row g-3 mb-4">
+        {orderStats.map((s) => (
+          <div className="col-6 col-md-4 col-lg-3" key={s.key}>
+            <Link to={s.to} className="text-decoration-none">
+              <div className={`admin-stat admin-stat-order st-${s.key}`}>
+                <span className="stat-dot" aria-hidden="true"></span>
                 <div className="num">{s.num}</div>
                 <div className="label">{s.label}</div>
               </div>

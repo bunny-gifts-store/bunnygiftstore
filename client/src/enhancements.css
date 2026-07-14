@@ -544,6 +544,50 @@ header {
 }
 .admin-stat .num { font-size: 2rem; font-weight: 700; color: var(--bg-secondary-color); }
 .admin-stat .label { color: #6c757d; font-size: 0.85rem; }
+.admin-stat { transition: transform 0.12s ease, box-shadow 0.12s ease; }
+a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
+
+.admin-section-title {
+  text-transform: uppercase; letter-spacing: 0.6px; font-size: 0.75rem;
+  font-weight: 700; color: #9a9aa6; margin-bottom: 0.6rem;
+}
+
+/* Order stat cards with a status-coloured accent */
+.admin-stat-order { position: relative; border-top: 3px solid var(--st-color, #7b4397); }
+.admin-stat-order .stat-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--st-color, #7b4397); margin-bottom: 0.4rem;
+}
+.admin-stat-order .num { color: var(--st-color, var(--bg-secondary-color)); }
+
+/* Status accent colours (shared by dashboard cards + order filter chips) */
+.st-all { --st-color: #7b4397; }
+.st-pending { --st-color: #6b7280; }
+.st-confirmed { --st-color: #1d3f8a; }
+.st-processing { --st-color: #1657c9; }
+.st-packed { --st-color: #5b32b8; }
+.st-out_for_delivery { --st-color: #7c3aed; }
+.st-delivered { --st-color: #2e9e4f; }
+.st-cancelled { --st-color: #b02a37; }
+
+/* Orders page: status filter chips */
+.order-filter { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.order-filter-chip {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  border: 1.5px solid #e3e0ec; background: #fff; color: #4a4a57;
+  padding: 0.35rem 0.85rem; border-radius: 50px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+}
+.order-filter-chip:hover { border-color: var(--st-color, #b98bff); color: var(--st-color, #4a4a57); }
+.order-filter-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px;
+  height: 20px; padding: 0 6px; border-radius: 50px; font-size: 0.72rem; font-weight: 700;
+  background: #f0eef6; color: #6c6580;
+}
+.order-filter-chip.active {
+  background: var(--st-color, #7b4397); border-color: var(--st-color, #7b4397); color: #fff;
+}
+.order-filter-chip.active .order-filter-count { background: rgba(255, 255, 255, 0.25); color: #fff; }
 
 /* Product add/edit modal: the <form> wraps the body + footer, which breaks
    Bootstrap's scrollable layout. display:contents lets the body and footer act
@@ -595,6 +639,7 @@ header {
 
 .order-status-cell { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
 .order-status-select { max-width: 160px; }
+.status-locked { font-size: 0.72rem; color: #9a8f8f; font-style: italic; white-space: nowrap; }
 
 /* Payment status chips + admin select accents */
 .payment-chip {
@@ -619,18 +664,29 @@ header {
   background: #fff;
   box-shadow: 0 4px 18px rgba(31, 20, 60, 0.05);
 }
+/* NOTE: these use <header>/<footer> tags, which the legacy global
+   header{}/footer{} rules (style.css) would otherwise hijack with a sticky
+   position, huge padding and centered white text. We reset those here. */
 .my-order-head {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 1rem; flex-wrap: wrap; margin-bottom: 0.9rem;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 0.75rem; flex-wrap: wrap;
+  position: static;                     /* cancel inherited sticky */
+  box-shadow: none;                     /* cancel inherited shadow */
+  margin: -1.1rem -1.25rem 1rem;        /* full-bleed to the card edges */
+  padding: 10px 16px;
+  border-radius: 16px 16px 0 0;         /* match the card's top corners */
+  text-align: left;
 }
-.my-order-no { font-weight: 800; font-size: 1.05rem; }
-.my-order-date { color: #7a7a86; font-size: 0.85rem; }
+.my-order-no { font-weight: 800; font-size: 1.02rem; color: #fff; line-height: 1.25; }
+.my-order-date { color: rgba(255, 255, 255, 0.82); font-size: 0.8rem; }
 .my-order-badges { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
 /* Progress tracker */
 .status-tracker {
-  list-style: none; display: flex; gap: 0; margin: 0.5rem 0 1.1rem; padding: 0;
-  counter-reset: step; overflow-x: auto;
+  list-style: none; display: flex; gap: 0; margin: 0.5rem 0 1.1rem;
+  padding: 10px 0 4px;              /* room for the current step's glow ring */
+  counter-reset: step;
+  overflow-x: auto; overflow-y: hidden;  /* horizontal scroll only; no top clipping */
 }
 .tracker-step {
   flex: 1 1 0; min-width: 84px; position: relative;
@@ -657,17 +713,261 @@ header {
 .tracker-current .tracker-label { color: var(--bg-accent-color, #7c3aed); font-weight: 700; }
 
 .my-order-foot {
-  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  border-top: 1px solid #f0f0f5; padding-top: 0.9rem; margin-top: 0.4rem;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 0.75rem 1.25rem; flex-wrap: wrap;
+  border-top: none;
+  margin: 1rem -1.25rem -1.1rem;        /* full-bleed to the card edges */
+  padding: 8px 16px;                    /* compact: ~8px vertical */
+  border-radius: 0 0 16px 16px;         /* match the card's bottom corners */
+  text-align: left;
 }
-.my-order-facts { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.my-order-facts { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; }
 .my-order-facts > div, .my-order-ship { display: flex; flex-direction: column; }
-.fact-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: #9a9aa6; }
-.fact-value { font-weight: 600; font-size: 0.92rem; }
-.my-order-ship { max-width: 320px; }
+.fact-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.72); line-height: 1.3;
+}
+.fact-value { font-weight: 600; font-size: 0.9rem; color: #fff; line-height: 1.25; }
+.my-order-foot .text-muted { color: rgba(255, 255, 255, 0.62) !important; }
+.my-order-ship { max-width: 320px; text-align: right; }
+.my-order-ship .fact-value { font-weight: 500; }
+/* Cancelled + refunded: the product returns to the store, shown in the brand
+   logo's gradient colour, bold, 12px. */
+.my-order-ship .back-to-store {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+  background: linear-gradient(135deg, var(--light-purple, #c77dff), var(--accent-color, #dc81a2));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 575.98px) {
+  .my-order-foot { align-items: flex-start; }
+  .my-order-ship { max-width: none; text-align: left; }
+}
 
 .delivery-editor {
-  border: 1px dashed #d9d9e3; border-radius: 10px; padding: 0.75rem 0.9rem; background: #fff;
+  border: 1px solid #ece9f5;
+  border-radius: 14px;
+  padding: 1rem 1.1rem 1.1rem;
+  background: linear-gradient(180deg, #faf8ff 0%, #ffffff 100%);
+  box-shadow: 0 1px 3px rgba(80, 60, 130, 0.06);
+}
+.delivery-editor-head {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem;
+}
+.delivery-editor-head h6 { font-weight: 700; color: #2b2740; letter-spacing: 0.2px; }
+.delivery-editor-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px; font-size: 0.95rem;
+  background: #efeaff;
+}
+.delivery-editor-body {
+  display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap;
+}
+.delivery-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 170px; }
+.delivery-label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px;
+  font-weight: 600; color: #8b8698;
+}
+.delivery-date-input {
+  border-radius: 10px; border: 1px solid #ddd8ec; padding: 0.5rem 0.7rem;
+  font-size: 0.9rem; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.delivery-date-input:focus {
+  border-color: #b79cf0; box-shadow: 0 0 0 3px rgba(183, 156, 240, 0.2); outline: none;
+}
+.delivery-day-pill {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 1rem;
+  border-radius: 10px; font-weight: 600; font-size: 0.92rem;
+  color: #5a3ea8; background: #efeaff; border: 1px solid #e0d7fb;
+  white-space: nowrap;
+}
+.delivery-day-pill.is-empty {
+  color: #a7a2b5; background: #f4f3f7; border-color: #eae8f0; font-weight: 500;
+}
+.delivery-save-btn {
+  height: 40px; padding: 0 1.4rem; border-radius: 999px; font-weight: 600;
+  color: #fff; border: none; white-space: nowrap;
+  background: linear-gradient(135deg, #c86dd7 0%, #9b6ef3 100%);
+  box-shadow: 0 4px 12px rgba(155, 110, 243, 0.3);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.delivery-save-btn:hover:not(:disabled) {
+  transform: translateY(-1px); box-shadow: 0 6px 16px rgba(155, 110, 243, 0.4);
+}
+.delivery-save-btn:active:not(:disabled) { transform: translateY(0); }
+.delivery-save-btn:disabled {
+  background: #d8d4e4; box-shadow: none; cursor: not-allowed; opacity: 0.85;
+}
+.delivery-save-btn.is-saved {
+  background: linear-gradient(135deg, #34c88a 0%, #2fb37c 100%);
+  box-shadow: none; opacity: 1; color: #fff;
+}
+@media (max-width: 575.98px) {
+  .delivery-editor-body { gap: 0.75rem; }
+  .delivery-field { min-width: 0; flex: 1 1 45%; }
+  .delivery-save-btn { flex: 1 1 100%; }
+}
+
+/* ---- Admin: Refund editor (cancelled orders) ---- */
+.refund-editor {
+  border: 1px solid #f6d9d9;
+  border-radius: 14px;
+  padding: 1rem 1.1rem 1.1rem;
+  background: linear-gradient(180deg, #fff6f6 0%, #ffffff 100%);
+  box-shadow: 0 1px 3px rgba(150, 40, 40, 0.06);
+}
+.refund-editor-head {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem; flex-wrap: wrap;
+}
+.refund-editor-head h6 { font-weight: 700; color: #7a2b2b; letter-spacing: 0.2px; }
+.refund-editor-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px; font-size: 0.95rem; background: #fde6e6;
+}
+.refund-editor-hint { font-size: 0.75rem; color: #a98686; margin-left: 0.15rem; }
+.refund-editor-body { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+.refund-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 170px; }
+.refund-field-note { flex: 1 1 260px; }
+.refund-status-select, .refund-note-input {
+  border-radius: 10px; border: 1px solid #edd3d3; padding: 0.5rem 0.7rem; font-size: 0.9rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.refund-status-select:focus, .refund-note-input:focus {
+  border-color: #ed9a9a; box-shadow: 0 0 0 3px rgba(237, 154, 154, 0.22); outline: none;
+}
+.refund-save-btn {
+  height: 40px; padding: 0 1.4rem; border-radius: 999px; font-weight: 600;
+  color: #fff; border: none; white-space: nowrap;
+  background: linear-gradient(135deg, #ef6a6a 0%, #d94b6b 100%);
+  box-shadow: 0 4px 12px rgba(217, 75, 107, 0.28);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.refund-save-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(217, 75, 107, 0.4); }
+.refund-save-btn:active:not(:disabled) { transform: translateY(0); }
+.refund-save-btn:disabled { background: #e3d3d6; box-shadow: none; cursor: not-allowed; opacity: 0.85; }
+.refund-save-btn.is-saved {
+  background: linear-gradient(135deg, #34c88a 0%, #2fb37c 100%); box-shadow: none; opacity: 1;
+}
+@media (max-width: 575.98px) {
+  .refund-editor-body { gap: 0.75rem; }
+  .refund-field, .refund-field-note { min-width: 0; flex: 1 1 100%; }
+  .refund-save-btn { flex: 1 1 100%; }
+}
+
+/* ---- Admin: staged "Update Order" workflow ---- */
+.order-update-editor {
+  border: 1px solid #e7e2f3;
+  border-radius: 14px;
+  padding: 1rem 1.1rem 1.1rem;
+  background: linear-gradient(180deg, #fbfaff 0%, #ffffff 100%);
+  box-shadow: 0 1px 3px rgba(80, 60, 130, 0.06);
+}
+.order-update-editor.is-locked {
+  border-color: #e6d3d3;
+  background: linear-gradient(180deg, #fbf6f6 0%, #ffffff 100%);
+}
+.order-update-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem; }
+.order-update-head h6 { font-weight: 700; color: #2b2740; }
+.order-update-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 9px; font-size: 0.95rem; background: #efeaff;
+}
+.order-lock-pill {
+  margin-left: auto; font-size: 0.72rem; font-weight: 700; color: #a12020;
+  background: #fbdcdc; padding: 3px 10px; border-radius: 50px;
+}
+.order-update-body {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem;
+}
+.order-update-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.order-update-field-full { grid-column: 1 / -1; }
+.order-update-field .form-select,
+.order-update-field .form-control {
+  border-radius: 10px; border: 1px solid #ddd8ec; font-size: 0.9rem;
+}
+.order-update-field .req { color: #dc3545; }
+.order-update-field .opt { color: #9a96a6; font-weight: 400; font-size: 0.72rem; }
+.order-update-warn {
+  font-size: 0.8rem; color: #8a5b00; background: #fff6e0;
+  border: 1px solid #ffe6ad; border-radius: 8px; padding: 6px 10px;
+}
+.order-update-err {
+  font-size: 0.85rem; color: #a12020; background: #fbdcdc;
+  border-radius: 8px; padding: 6px 10px;
+}
+.order-update-btn {
+  height: 42px; padding: 0 1.6rem; border-radius: 999px; font-weight: 700;
+  color: #fff; border: none; white-space: nowrap;
+  background: linear-gradient(135deg, #7b4397 0%, #c86dd7 100%);
+  box-shadow: 0 4px 12px rgba(123, 67, 151, 0.3);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.order-update-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(123, 67, 151, 0.4); }
+.order-update-btn:disabled { background: #d8d4e4; box-shadow: none; cursor: not-allowed; opacity: 0.85; }
+.order-update-btn.is-saved { background: linear-gradient(135deg, #34c88a 0%, #2fb37c 100%); box-shadow: none; }
+.order-update-pending { margin-left: 0.75rem; font-size: 0.78rem; color: #b07d00; font-style: italic; }
+/* Locked read-only summary */
+.order-update-locked { display: flex; flex-direction: column; gap: 0.5rem; }
+.oul-row { display: flex; gap: 0.75rem; align-items: baseline; }
+.oul-label {
+  flex: 0 0 150px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px;
+  font-weight: 700; color: #8a8f96;
+}
+.oul-value { font-weight: 600; color: #33373d; word-break: break-word; }
+.order-lock-msg { font-size: 0.82rem; color: #a12020; margin-top: 0.25rem; }
+@media (max-width: 575.98px) {
+  .order-update-body { grid-template-columns: 1fr; }
+  .oul-row { flex-direction: column; gap: 0.1rem; }
+  .oul-label { flex-basis: auto; }
+}
+
+/* ---- User: centered CANCELLED stamp (circular seal) ---- */
+.cancelled-banner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 0.6rem;
+  margin: 0.75rem 0 1rem;
+}
+.cancelled-stamp {
+  display: grid; place-items: center;
+  width: 100px; height: 100px; border-radius: 50%;
+  color: #dc3545;
+  border: 4px solid #dc3545;
+  box-shadow: inset 0 0 0 3px rgba(220, 53, 69, 0.28);
+  transform: rotate(-12deg);
+}
+.cancelled-label {
+  font-size: 13px; font-weight: 900; line-height: 1; letter-spacing: 0.5px;
+  text-transform: uppercase; color: #dc3545;
+}
+.cancelled-sub { font-size: 0.9rem; color: #a24a52; font-weight: 500; }
+.cancelled-reason {
+  font-size: 0.85rem; color: #6c5560; max-width: 520px;
+  background: #fbeef0; border-radius: 8px; padding: 6px 12px;
+}
+.cancelled-reason strong { color: #a24a52; }
+
+/* ---- User: refund status shown inline in the (cancelled) order header ---- */
+.my-order-headmain { display: flex; flex-direction: column; }
+.my-order-refund {
+  display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+  padding: 5px 14px; border-radius: 50px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.8rem; color: rgba(255, 255, 255, 0.9);
+}
+.my-order-refund .mor-label {
+  text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.68rem;
+  font-weight: 700; color: rgba(255, 255, 255, 0.68);
+}
+.my-order-refund .mor-sep { color: rgba(255, 255, 255, 0.5); }
+.my-order-refund .mor-value { font-weight: 700; }
+.my-order-refund .mor-txn { font-weight: 600; letter-spacing: 0.2px; }
+.my-order-refund.refund-successful .mor-value { color: #8ff0c0; }
+.my-order-refund.refund-pending .mor-value { color: #ffdf8a; }
+.my-order-refund.refund-failed .mor-value { color: #ffb0b8; }
+.my-order-refund.refund-none .mor-value { color: rgba(255, 255, 255, 0.85); }
+@media (max-width: 640px) {
+  .my-order-refund { order: 3; flex-basis: 100%; justify-content: flex-start; margin-top: 2px; }
 }
 
 .admin-thumb {
