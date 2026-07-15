@@ -204,6 +204,8 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
       if (!String(reason).trim()) {
         return res.status(400).json({ error: 'A cancellation reason is required to cancel an order.' });
       }
+      // Record when the order was cancelled, using the server clock (no custom date).
+      updates.cancelledAt = new Date().toISOString();
     }
     updates.status = nextStatus;
   }

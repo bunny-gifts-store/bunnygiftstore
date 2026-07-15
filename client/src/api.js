@@ -36,6 +36,18 @@ export function apiError(err, fallback = 'Something went wrong. Please try again
   return err?.response?.data?.error || err?.message || fallback;
 }
 
+// Wake the API before the user needs it. The production API runs on a host that
+// spins down when idle, so the first request has a long cold-start delay (this
+// is why login feels slow live but is instant locally). Firing this the moment
+// the app loads lets the server boot while the user reads the login screen, so
+// by the time they click Login it's usually already awake. Fire-and-forget.
+let warmedUp = false;
+export function warmUpApi() {
+  if (warmedUp) return;
+  warmedUp = true;
+  api.get('/health', { timeout: 60000 }).catch(() => { warmedUp = false; });
+}
+
 // ---- Public catalog ----
 export const fetchCategories = () => api.get('/categories').then((r) => r.data);
 export const fetchProducts = (category) =>

@@ -71,6 +71,7 @@ db.exec(`
     refundNote    TEXT,             -- optional refund transaction details / note
     refundUpdatedAt TEXT,           -- when the refund status was last set by the admin
     cancellationReason TEXT,        -- required when an order is cancelled
+    cancelledAt   TEXT,             -- system timestamp when the order was cancelled
     createdAt     TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -112,6 +113,16 @@ if (!orderCols.includes('refundUpdatedAt')) {
 }
 if (!orderCols.includes('cancellationReason')) {
   db.exec(`ALTER TABLE orders ADD COLUMN cancellationReason TEXT`);
+}
+if (!orderCols.includes('cancelledAt')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN cancelledAt TEXT`);
+  // Backfill already-cancelled orders with a best-effort timestamp so they
+  // still show a cancellation date (refund time if set, else the order date).
+  db.exec(`
+    UPDATE orders
+    SET cancelledAt = COALESCE(refundUpdatedAt, createdAt)
+    WHERE status = 'cancelled' AND cancelledAt IS NULL
+  `);
 }
 
 export default db;

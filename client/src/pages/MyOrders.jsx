@@ -112,45 +112,40 @@ function OrderCard({ order: o }) {
         </div>
       </header>
 
-      {!cancelled && <StatusTracker status={status} />}
+      {/* Cancelled: product and the cancelled stamp sit side by side on desktop
+          (flex) and stack on mobile (block) via Bootstrap's responsive grid. */}
       {cancelled && (
-        <div className="cancelled-banner" role="status">
-          <div className="cancelled-stamp">
-            <span className="cancelled-label">CANCELLED</span>
+        <div className="row g-3 align-items-center my-order-cancelled-row">
+          <div className="col-12 col-md-6">
+            <OrderItems items={o.items} stacked />
           </div>
-          <span className="cancelled-sub">This order has been cancelled.</span>
-          {o.cancellationReason && (
-            <span className="cancelled-reason"><strong>Reason:</strong> {o.cancellationReason}</span>
-          )}
+          <div className="col-12 col-md-6">
+            <div className="cancelled-banner" role="status">
+              <div className="cancelled-stamp">
+                <span className="cancelled-label">CANCELLED</span>
+              </div>
+              <span className="cancelled-sub">This order has been cancelled.</span>
+              {o.cancellationReason && (
+                <span className="cancelled-reason"><strong>Reason:</strong> {o.cancellationReason}</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="my-order-body">
-        {Array.isArray(o.items) && o.items.length > 0 && (
-          <div className="order-items">
-            {o.items.map((it, i) => (
-              <div className="order-item-row" key={i}>
-                <img className="order-item-thumb" src={resolveImage(it.image)} alt={it.name} loading="lazy" />
-                <div className="order-item-info">
-                  <span className="order-item-name">{it.name}</span>
-                  <span className="order-item-meta">
-                    <span className="order-item-code">{it.code}</span>
-                    {it.size ? ` · ${it.size}` : ''} · Qty {it.quantity}
-                  </span>
-                </div>
-                <div className="order-item-total">{formatPrice((it.unitPrice || 0) * (it.quantity || 1))}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Active orders keep the tracker on top and the product list below. */}
+      {!cancelled && <StatusTracker status={status} />}
+      {!cancelled && <OrderItems items={o.items} />}
 
       <footer className="my-order-foot">
         <div className="my-order-facts">
           <div><span className="fact-label">Total</span><span className="fact-value">{formatPrice(o.totalAmount)}</span></div>
           <div><span className="fact-label">Payment</span><span className="fact-value">{paymentLabel(o.paymentStatus)}</span></div>
           {cancelled ? (
-            <div><span className="fact-label">Delivery</span><span className="fact-value text-muted">Cancelled</span></div>
+            <>
+              <div><span className="fact-label">Delivery</span><span className="fact-value text-muted">Cancelled</span></div>
+              <div><span className="fact-label">Cancelled On</span><span className="fact-value">{formatDateTime(o.cancelledAt)}</span></div>
+            </>
           ) : (
             <>
               <div><span className="fact-label">Delivery Day</span><span className="fact-value">{o.deliveryDay || 'To be scheduled'}</span></div>
@@ -168,6 +163,46 @@ function OrderCard({ order: o }) {
         </div>
       </footer>
     </article>
+  );
+}
+
+// Product rows. `stacked` puts each price directly under the product details
+// (used for cancelled orders); otherwise the price sits on the right.
+function OrderItems({ items, stacked = false }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return (
+    <div className="my-order-body">
+      <div className="order-items">
+        {items.map((it, i) => {
+          const price = formatPrice((it.unitPrice || 0) * (it.quantity || 1));
+          return (
+            <div className={`order-item-row${stacked ? ' is-stacked' : ''}`} key={i}>
+              <img className="order-item-thumb" src={resolveImage(it.image)} alt={it.name} loading="lazy" />
+              {stacked ? (
+                <dl className="order-item-details">
+                  <dt>Product Code</dt><dd>{it.code}</dd>
+                  <dt>Product Name</dt><dd>{it.name}</dd>
+                  {it.size ? (<><dt>Size</dt><dd>{it.size}</dd></>) : null}
+                  <dt>Qty</dt><dd>{it.quantity}</dd>
+                  <dt>Price</dt><dd className="oi-price">{price}</dd>
+                </dl>
+              ) : (
+                <>
+                  <div className="order-item-info">
+                    <span className="order-item-name">{it.name}</span>
+                    <span className="order-item-meta">
+                      <span className="order-item-code">{it.code}</span>
+                      {it.size ? ` · ${it.size}` : ''} · Qty {it.quantity}
+                    </span>
+                  </div>
+                  <div className="order-item-total">{price}</div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -194,4 +229,11 @@ function formatDeliveryDate(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return date;
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
