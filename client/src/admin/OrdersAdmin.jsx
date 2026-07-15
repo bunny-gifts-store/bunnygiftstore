@@ -226,8 +226,8 @@ export default function OrdersAdmin() {
                       <td>
                         <div className="order-status-cell">
                           <OrderStatusBadge status={o.status} />
-                          {o.status === 'cancelled' && (
-                            <span className="status-locked" title="Cancelled orders are locked">🔒 Locked</span>
+                          {(o.status === 'cancelled' || o.status === 'delivered') && (
+                            <span className="status-locked" title="This order is locked">🔒 Locked</span>
                           )}
                         </div>
                       </td>
@@ -265,6 +265,7 @@ export default function OrdersAdmin() {
 
                             {(() => {
                               const locked = o.status === 'cancelled';
+                              const delivered = o.status === 'delivered';
                               const isCancel = draftStatus === 'cancelled';
                               const dirty = draftStatus !== o.status
                                 || (isCancel && (
@@ -280,11 +281,11 @@ export default function OrdersAdmin() {
                               const canUpdate = dirty && valid && !savingOrder;
 
                               return (
-                                <div className={`order-update-editor mt-3${locked ? ' is-locked' : ''}`}>
+                                <div className={`order-update-editor mt-3${(locked || delivered) ? ' is-locked' : ''}`}>
                                   <div className="order-update-head">
                                     <span className="order-update-icon" aria-hidden="true">📝</span>
                                     <h6 className="mb-0">Update Order</h6>
-                                    {locked && <span className="order-lock-pill">🔒 Locked</span>}
+                                    {(locked || delivered) && <span className="order-lock-pill">🔒 Locked</span>}
                                   </div>
 
                                   {locked ? (
@@ -338,6 +339,13 @@ export default function OrdersAdmin() {
                                           </div>
                                         );
                                       })()}
+                                    </div>
+                                  ) : delivered ? (
+                                    <div className="order-update-locked">
+                                      <div className="oul-row"><span className="oul-label">Status</span><OrderStatusBadge status={o.status} /></div>
+                                      <div className="oul-row"><span className="oul-label">Delivery Day</span><span className="oul-value">{dayFromDate(o.deliveryDate) || o.deliveryDay || '—'}</span></div>
+                                      <div className="oul-row"><span className="oul-label">Delivery Date</span><span className="oul-value">{formatDeliveryDate(o.deliveryDate) || '—'}</span></div>
+                                      <div className="order-lock-msg">This order is delivered — its status and delivery schedule are locked.</div>
                                     </div>
                                   ) : (
                                     <div className="order-update-body">
@@ -417,7 +425,7 @@ export default function OrdersAdmin() {
                               );
                             })()}
 
-                            {o.status !== 'cancelled' && (() => {
+                            {o.status !== 'cancelled' && o.status !== 'delivered' && (() => {
                               const derivedDay = dayFromDate(deliveryDate);
                               const dirty = deliveryDate !== (o.deliveryDate || '');
                               const canSave = !!deliveryDate && dirty && !savingDelivery;

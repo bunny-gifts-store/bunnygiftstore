@@ -4,6 +4,7 @@ import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import CartModal from './components/CartModal.jsx';
 import ProductModal from './components/ProductModal.jsx';
+import MobileCartBar from './components/MobileCartBar.jsx';
 import ContentProtection from './components/ContentProtection.jsx';
 import UserLoginScreen from './components/UserLoginScreen.jsx';
 import { useAuth } from './context/AuthContext.jsx';
@@ -38,6 +39,7 @@ function StorefrontLayout({ children }) {
       <Footer />
       <CartModal />
       <ProductModal />
+      <MobileCartBar />
     </div>
   );
 }

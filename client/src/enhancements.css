@@ -743,6 +743,81 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
   .cart-title-sub { display: block; margin-left: 0; font-size: 0.9rem; }
 }
 
+/* ---- Footer developer credit (shown on every storefront page) ---- */
+.footer-credit {
+  /* Full-bleed black highlight strip pinned to the bottom of the footer, with a
+     brand-gradient top accent for a bit of shine. */
+  margin: 1.25rem -2rem -2rem;
+  padding: 0.85rem 2rem;
+  background: linear-gradient(90deg, #0b0b12 0%, #17132a 50%, #0b0b12 100%);
+  border-width: 2px 0 0; border-style: solid;
+  border-image: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color)) 1;
+  font-size: 0.85rem; color: rgba(255, 255, 255, 0.8); line-height: 1.6;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 0.3rem 0.65rem; text-align: center;
+}
+.footer-credit .fc-lead { font-weight: 500; letter-spacing: 0.2px; }
+.footer-credit .fc-name {
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--bg-light-purple), var(--bg-accent-color));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.footer-credit .fc-desc { color: rgba(255, 255, 255, 0.65); }
+.footer-credit .fc-phone {
+  display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+  padding: 0.22rem 0.85rem; border-radius: 50px;
+  background: linear-gradient(135deg, var(--bg-light-purple), var(--bg-accent-color));
+  color: #fff !important; font-weight: 700; text-decoration: none;
+  box-shadow: 0 3px 10px rgba(199, 125, 255, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.footer-credit .fc-phone:hover {
+  transform: translateY(-1px); box-shadow: 0 5px 14px rgba(199, 125, 255, 0.5);
+  text-decoration: none; color: #fff !important;
+}
+.footer-credit .fc-linkedin {
+  display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+  padding: 0.22rem 0.85rem; border-radius: 50px;
+  background: #0a66c2; color: #fff !important;
+  text-decoration: none; transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.footer-credit .fc-linkedin .fc-linkedin-text { color: #fff; font-weight: 600; }
+.footer-credit .fc-linkedin:hover {
+  transform: translateY(-1px); box-shadow: 0 5px 14px rgba(10, 102, 194, 0.55);
+  text-decoration: none; color: #fff !important;
+}
+
+/* ---- Mobile-only "Go to Cart" action bar ---- */
+.mobile-cart-bar { display: none; }
+@media (max-width: 767.98px) {
+  .mobile-cart-bar {
+    position: fixed;
+    left: 0.75rem; right: 0.75rem; bottom: 0.75rem;
+    z-index: 1040;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.7rem 1.1rem;
+    border: none; border-radius: 50px;
+    color: #fff; font-weight: 700; font-size: 0.95rem;
+    /* Themeable: follows the brand gradient tokens */
+    background: linear-gradient(135deg, var(--bg-light-purple, #c77dff) 0%, var(--bg-accent-color, #dc81a2) 100%);
+    box-shadow: 0 8px 22px rgba(123, 67, 151, 0.4);
+    animation: mcbPop 0.25s ease;
+  }
+  .mcb-left { display: inline-flex; align-items: center; gap: 0.55rem; }
+  .mcb-icon { font-size: 1.15rem; }
+  .mcb-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 22px; padding: 0 6px; border-radius: 50px;
+    background: rgba(255, 255, 255, 0.28); font-size: 0.8rem; font-weight: 800; line-height: 1;
+  }
+  .mcb-total { font-weight: 800; white-space: nowrap; }
+}
+@keyframes mcbPop {
+  0% { transform: translateY(120%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
 /* ---- My Orders page ---- */
 .my-orders-list { display: flex; flex-direction: column; gap: 1.25rem; }
 

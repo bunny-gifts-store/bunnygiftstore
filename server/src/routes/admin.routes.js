@@ -189,6 +189,9 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   // the admin may STILL record/update the refund status + UTR afterwards — this
   // matters for orders the customer self-cancelled with no refund set yet.
   const alreadyCancelled = normalizeStatus(existing.status) === 'cancelled';
+  // Delivered is also terminal: once delivered, neither the status nor the
+  // delivery schedule may change.
+  const alreadyDelivered = normalizeStatus(existing.status) === 'delivered';
 
   const { status, deliveryDay, deliveryDate, paymentStatus, refundStatus, refundNote, cancellationReason } = req.body;
   const updates = {};
@@ -198,6 +201,9 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
     const nextStatus = String(status).toLowerCase();
     if (alreadyCancelled && nextStatus !== 'cancelled') {
       return res.status(409).json({ error: 'This order is cancelled; its status can no longer be changed.' });
+    }
+    if (alreadyDelivered && nextStatus !== 'delivered') {
+      return res.status(409).json({ error: 'This order is delivered; its status can no longer be changed.' });
     }
     if (nextStatus === 'cancelled' && !alreadyCancelled) {
       // A cancellation reason is mandatory (may arrive in this same request).
@@ -215,8 +221,13 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
     if (!isValidPaymentStatus(paymentStatus)) return res.status(400).json({ error: 'Invalid payment status.' });
     updates.paymentStatus = String(paymentStatus).toLowerCase();
   }
-  if (deliveryDay !== undefined) updates.deliveryDay = String(deliveryDay || '').trim() || null;
-  if (deliveryDate !== undefined) updates.deliveryDate = String(deliveryDate || '').trim() || null;
+  // Delivery schedule is frozen once the order is delivered or cancelled.
+  if (deliveryDay !== undefined && !alreadyDelivered && !alreadyCancelled) {
+    updates.deliveryDay = String(deliveryDay || '').trim() || null;
+  }
+  if (deliveryDate !== undefined && !alreadyDelivered && !alreadyCancelled) {
+    updates.deliveryDate = String(deliveryDate || '').trim() || null;
+  }
   // The cancellation reason is only editable while cancelling; never overwrite
   // it (especially a customer's reason) once the order is already cancelled.
   if (cancellationReason !== undefined && !alreadyCancelled) {
@@ -250,8 +261,12 @@ router.patch('/orders/:id/status', asyncHandler((req, res) => {
   if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
   const existing = db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
-  if (normalizeStatus(existing.status) === 'cancelled' && status !== 'cancelled') {
+  const current = normalizeStatus(existing.status);
+  if (current === 'cancelled' && status !== 'cancelled') {
     return res.status(409).json({ error: 'This order is cancelled; its status can no longer be changed.' });
+  }
+  if (current === 'delivered' && status !== 'delivered') {
+    return res.status(409).json({ error: 'This order is delivered; its status can no longer be changed.' });
   }
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
