@@ -88,8 +88,17 @@ export default function CartModal() {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title">
-                {step === 'cart' ? 'Your Cart'
-                  : step === 'checkout' ? 'Shipping / Delivery Address'
+                {step === 'cart' ? (
+                  <>
+                    Your Cart
+                    {count > 0 && (
+                      <span className="cart-title-sub">
+                        Loaded with <strong className="cart-title-hl">{count} item{count > 1 ? 's' : ''}</strong>
+                        {' · '}Total Worth of <strong className="cart-title-hl">{formatPrice(total)}</strong>
+                      </span>
+                    )}
+                  </>
+                ) : step === 'checkout' ? 'Shipping / Delivery Address'
                   : step === 'payment' ? 'PhonePe Payment'
                   : 'Order Confirmed'}
               </h5>
@@ -100,7 +109,7 @@ export default function CartModal() {
 
               {step === 'cart' && (
                 <CartPreview
-                  items={items} total={total} count={count}
+                  items={items}
                   removeItem={removeItem} changeQuantity={changeQuantity} setQuantity={setQuantity}
                   onCheckout={() => setStep('checkout')}
                 />
@@ -146,7 +155,7 @@ function OrderSuccess({ orderNumber }) {
   );
 }
 
-function CartPreview({ items, total, count, removeItem, changeQuantity, setQuantity, onCheckout }) {
+function CartPreview({ items, removeItem, changeQuantity, setQuantity, onCheckout }) {
   if (items.length === 0) {
     return (
       <div className="text-center py-5">
@@ -157,18 +166,6 @@ function CartPreview({ items, total, count, removeItem, changeQuantity, setQuant
   }
   return (
     <>
-      <div className="mb-4">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
-          <div>
-            <h5 className="mb-1">Cart Preview</h5>
-            <p className="text-muted mb-0">{count} selected item{count > 1 ? 's' : ''}</p>
-          </div>
-          <div className="text-md-end">
-            <div className="fs-5 fw-semibold">Total: {formatPrice(total)}</div>
-          </div>
-        </div>
-      </div>
-
       {items.map((item, index) => {
         const q = item.quantity || 1;
         const unit = item.pricePerUnit || item.price;
@@ -201,8 +198,7 @@ function CartPreview({ items, total, count, removeItem, changeQuantity, setQuant
         );
       })}
 
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-3">
-        <div><strong>Total Items:</strong> {count}</div>
+      <div className="d-flex justify-content-center mt-3">
         <button className="btn btn-primary btn-lg" onClick={onCheckout}>Proceed to Place The Order</button>
       </div>
     </>

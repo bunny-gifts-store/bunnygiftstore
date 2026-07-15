@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUI } from '../context/UIContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { formatPrice, displayPrice, resolveImage } from '../utils.js';
+import { formatPrice, displayPrice, resolveImage, needsCustomPhoto } from '../utils.js';
+import { OWNER_EMAIL, STORE_WHATSAPP, STORE_WHATSAPP_INTL } from '../config.js';
 
 export default function ProductModal() {
   const { activeProduct: product, closeProduct } = useUI();
@@ -141,12 +142,31 @@ export default function ProductModal() {
               )}
             </div>
           </div>
-          <div className="modal-footer">
-            <button className="btn btn-primary" onClick={handleAdd} disabled={disabled}>
-              {added ? 'Added ✓' : disabled ? 'Out of Stock' : 'Add to Cart'}
-            </button>
-            <button className="btn btn-secondary" onClick={closeProduct}>Close</button>
-          </div>
+
+          {needsCustomPhoto(product) && (
+            <div className="photo-note" role="note">
+              <div className="photo-note-title">📸 How to customize</div>
+              <ol className="photo-note-list">
+                <li>
+                  After placing your order, send us a screenshot showing your <strong>Order ID</strong> along with your customization image and name.
+                </li>
+                <li>
+                  Send your customization photo and name to us on WhatsApp:{' '}
+                  <a href={`https://wa.me/${STORE_WHATSAPP_INTL}`} target="_blank" rel="noopener noreferrer">{STORE_WHATSAPP}</a>.
+                </li>
+                <li>
+                  For better print quality, email your photo in <strong>HD</strong> to{' '}
+                  <a href={`mailto:${OWNER_EMAIL}`}>{OWNER_EMAIL}</a>.
+                </li>
+              </ol>
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={closeProduct}>Close</button>
+          <button className="btn btn-primary" onClick={handleAdd} disabled={disabled}>
+            {added ? 'Added ✓' : disabled ? 'Out of Stock' : 'Add to Cart'}
+          </button>
         </div>
       </div>
     </div>

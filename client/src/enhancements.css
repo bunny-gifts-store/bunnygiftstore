@@ -55,6 +55,13 @@ html, body { overflow-x: clip; max-width: 100%; }
    overflow so nothing pokes past the viewport on small screens. */
 .hero, .hero-about, .hero-contact { overflow: hidden; }
 
+/* Sticky footer: full-height flex column so the footer sits at the bottom of
+   the viewport when a page's content is short, but still flows below long
+   content normally. */
+.site-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.site-content { flex: 1 0 auto; }
+.site-shell > footer { flex-shrink: 0; }
+
 /* Sticky header — reinforce across browsers (webkit prefix for old Safari).
    Kept sticky in every scenario by ensuring no ancestor becomes a scroll
    container (see the overlay note above). */
@@ -184,19 +191,52 @@ header {
 }
 #productModal .product-modal-header {
   flex-shrink: 0;
-  padding: 1.15rem 1.6rem;
+  padding: 13px 1.6rem;   /* 5px + 8px extra top/bottom */
 }
-#productModal .product-modal-header h2 { font-size: 1.3rem; letter-spacing: 0.3px; }
+#productModal .product-modal-header h2 { font-size: 1.15rem; letter-spacing: 0.3px; }
+/* Lighter, thinner close icon (the theme's default is bold/heavy) */
+#productModal .close-btn {
+  font-weight: 300;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.85);
+}
+#productModal .close-btn:hover { color: #fff; }
 #productModal .product-modal-body {
   overflow-y: auto;
-  padding: 1.75rem;
+  padding: 1rem 1.5rem;
 }
 
-/* Layout: image + details side by side, stacked on small screens */
+/* Highlighted "send your photo" note for photo-customizable products */
+.photo-note {
+  margin: 0.6rem 0 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--bg-accent-color);
+  background: linear-gradient(180deg, #fdf4f8 0%, #fbf7ff 100%);
+}
+.photo-note-title {
+  font-weight: 700; color: var(--bg-secondary-color); font-size: 0.88rem; margin-bottom: 0.45rem;
+}
+/* Full-width note below the product row, shown as a numbered list */
+.photo-note-list {
+  margin: 0; padding-left: 1.35rem;
+  display: flex; flex-direction: column; gap: 0.35rem;
+}
+.photo-note-list li {
+  font-size: 0.85rem; color: #4a4557; line-height: 1.45; padding-left: 0.15rem;
+}
+.photo-note-list li::marker { color: var(--bg-secondary-color); font-weight: 700; }
+.photo-note a { color: var(--bg-secondary-color); font-weight: 700; text-decoration: none; word-break: break-word; }
+.photo-note a:hover { text-decoration: underline; }
+
+/* Layout: image + details side by side, stacked on small screens.
+   align-items:center balances the image against the taller details column so
+   the leftover space isn't dumped below the image. */
 #productModal .modal-product-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  gap: 1.75rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 1.25rem;
+  align-items: center;
 }
 @media (max-width: 576px) {
   #productModal .modal-product-grid { grid-template-columns: 1fr; }
@@ -224,7 +264,7 @@ header {
   text-transform: uppercase;
   padding: 0.3rem 0.7rem;
   border-radius: 50px;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.6rem;
 }
 #productModal .modal-product-title {
   font-size: 1.55rem;
@@ -237,17 +277,22 @@ header {
   font-size: 1.45rem;
   font-weight: 700;
   color: var(--bg-secondary-color);
-  margin-bottom: 1rem;
+  /* System sans-serif so the ₹ symbol + digits render like the reference photo
+     (Poppins renders the rupee glyph inconsistently). */
+  font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif;
+  margin-bottom: 0.6rem;
 }
-#productModal .modal-description { color: #6c757d; line-height: 1.7; margin-bottom: 0; }
+#productModal .modal-description { color: #6c757d; line-height: 1.5; margin-bottom: 0; }
 
-/* Footer: divider + right-aligned, well-proportioned buttons */
+/* Footer: compact (5px vertical); Close on the left, Add to Cart on the right */
 #productModal .modal-footer {
+  flex-shrink: 0;
   border-top: 1px solid #eef0f3;
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
+  margin: 0;
+  padding: 5px 1.6rem;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
 }
 #productModal .modal-footer .btn {
@@ -295,6 +340,21 @@ header {
   border-bottom: 3px solid;
   border-image: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color)) 1;
   display: inline-block;
+}
+
+/* ---------- Uniform product-card images + tighter card spacing ----------
+   The theme leaves the image wrapper at natural aspect ratio, so images end up
+   different heights and cards stretch unevenly with big gaps. Lock the image to
+   a square so every card's image is the same size, and trim the card padding. */
+.product-image-wrapper {
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+}
+.product-image { width: 100%; height: 100%; object-fit: cover; }
+.product-info { padding: 1rem 1.1rem; gap: 0.55rem; }
+.product-name { font-size: 1.1rem; margin-bottom: 0; }
+.product-short {
+  font-size: 0.9rem; line-height: 1.5; min-height: 2.7rem; margin: 0;
 }
 
 /* ---------- Out-of-stock badge on product cards ---------- */
@@ -598,14 +658,31 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
 .admin-product-modal .modal-body { overflow-y: auto; }
 .admin-product-modal .modal-footer { position: sticky; bottom: 0; background: #fff; }
 
-/* Ensure the primary action reads as the theme's primary colour in the admin. */
+/* Admin primary button: match the neighbouring Cancel / input controls.
+   The theme's .btn-primary forces a pill shape, 0.8rem padding and border:none,
+   which makes it taller than Cancel and out of line with inputs. Reset it to
+   Bootstrap's normal sizing (with a transparent border so the box height equals
+   bordered buttons) — only the gradient fill differs. */
 .admin-shell .btn-primary,
 .admin-product-modal .btn-primary {
   background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
-  border: none;
+  border: 1px solid transparent;
   color: #fff;
   font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
 }
+.admin-shell .btn-sm.btn-primary,
+.admin-product-modal .btn-sm.btn-primary {
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+/* No lift on hover in the admin (the theme adds a translate that looks jumpy). */
+.admin-shell .btn-primary:hover,
+.admin-product-modal .btn-primary:hover { transform: none; box-shadow: none; }
 .admin-shell .btn-primary:hover,
 .admin-product-modal .btn-primary:hover {
   filter: brightness(1.05);
@@ -655,8 +732,61 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
 .payment-failed { background: #fbdcdc; color: #a12020; }
 .payment-refunded { background: #e5e7eb; color: #475569; }
 
+/* Cart modal title: "Your Cart" keeps its size; the summary beside it is
+   normal weight/size. */
+.cart-title-sub {
+  margin-left: 0.6rem; font-size: 1rem; font-weight: 400; color: #6c757d;
+}
+/* Highlight the count + amount: bold, neutral (no theme colour) */
+.cart-title-hl { font-weight: 700; color: #33373d; }
+@media (max-width: 575.98px) {
+  .cart-title-sub { display: block; margin-left: 0; font-size: 0.9rem; }
+}
+
 /* ---- My Orders page ---- */
 .my-orders-list { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Beautiful page title: gradient text with a small accent underline */
+.my-orders-title {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-weight: 800; font-size: clamp(1.9rem, 4vw, 2.5rem); letter-spacing: 0.3px;
+  position: relative; line-height: 1.1;
+  background: linear-gradient(135deg, var(--bg-secondary-color) 0%, var(--bg-accent-color) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.my-orders-title .mot-icon { -webkit-text-fill-color: initial; }
+.my-orders-title::after {
+  content: ''; position: absolute; left: 0; bottom: -10px;
+  width: 56px; height: 4px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color));
+}
+
+/* Empty / loading state: centered in the available space, gently styled */
+.my-orders-empty {
+  min-height: 58vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 0.25rem;
+}
+.my-orders-empty-icon {
+  font-size: 2.2rem; width: 90px; height: 90px; border-radius: 50%;
+  display: grid; place-items: center; margin-bottom: 0.6rem;
+  background: linear-gradient(135deg, rgba(199, 125, 255, 0.16), rgba(220, 129, 162, 0.16));
+  box-shadow: 0 8px 24px rgba(123, 67, 151, 0.14);
+}
+.my-orders-empty-title { font-weight: 700; color: #2b2740; margin: 0; }
+.my-orders-empty-text { color: #8a8696; margin: 0.25rem 0 1.2rem; }
+.my-orders-empty-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.65rem 1.6rem; border-radius: 999px; font-weight: 600;
+  text-decoration: none; color: #fff;
+  background: linear-gradient(135deg, var(--bg-light-purple), var(--bg-accent-color));
+  box-shadow: 0 6px 16px rgba(199, 125, 255, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.my-orders-empty-btn:hover {
+  transform: translateY(-2px); box-shadow: 0 10px 22px rgba(199, 125, 255, 0.5); color: #fff;
+}
 .my-order-card {
   border: 1px solid #ececf2;
   border-radius: 16px;

@@ -11,3 +11,6 @@ export const API_BASE =
   (import.meta.env.PROD ? PROD_API_BASE : '');
 
 export const OWNER_EMAIL = 'brscustomgifts@gmail.com';
+// Store WhatsApp — display form + international digits for wa.me links.
+export const STORE_WHATSAPP = '+91-9701-756-904';
+export const STORE_WHATSAPP_INTL = '919701756904';

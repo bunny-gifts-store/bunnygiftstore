@@ -32,13 +32,13 @@ function StorefrontLayout({ children }) {
   if (!user) return <UserLoginScreen />;
 
   return (
-    <>
+    <div className="site-shell">
       <Navbar />
-      {children}
+      <div className="site-content">{children}</div>
       <Footer />
       <CartModal />
       <ProductModal />
-    </>
+    </div>
   );
 }
 

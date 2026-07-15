@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchMyOrders, apiError } from '../api.js';
 import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
 import {
@@ -49,20 +50,21 @@ export default function MyOrders() {
 
   return (
     <main className="container py-5 my-orders-page">
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-        <h1 className="section-title mb-0">My Orders</h1>
+      <div className="my-orders-head d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <h1 className="my-orders-title mb-0"><span className="mot-icon" aria-hidden="true">🎁</span>My Orders</h1>
         {orders.length > 0 && <span className="text-muted small">Auto-updates every few seconds</span>}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
       {loading ? (
-        <p className="text-muted">Loading your orders…</p>
+        <div className="my-orders-empty"><p className="text-muted">Loading your orders…</p></div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-5">
-          <div style={{ fontSize: '2.5rem' }} aria-hidden="true">📦</div>
-          <h5 className="mt-2">You haven't placed any orders yet</h5>
-          <p className="text-muted">Once you place an order, you can track its status here.</p>
+        <div className="my-orders-empty">
+          <div className="my-orders-empty-icon" aria-hidden="true">📦</div>
+          <h5 className="my-orders-empty-title">You haven't placed any orders yet</h5>
+          <p className="my-orders-empty-text">Once you place an order, you can track its status here.</p>
+          <Link to="/all-gifts" className="my-orders-empty-btn">🛍️ Start shopping</Link>
         </div>
       ) : (
         <div className="my-orders-list">
