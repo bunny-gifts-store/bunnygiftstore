@@ -184,13 +184,11 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
 
-  // Cancelled is terminal AND fully locked: once an order has been committed as
-  // cancelled, nothing about it (status, reason, refund, UTR, delivery) may
-  // change. The single PATCH that first cancels the order is still allowed
-  // because at that point the stored status is not yet 'cancelled'.
-  if (normalizeStatus(existing.status) === 'cancelled') {
-    return res.status(409).json({ error: 'This order is cancelled and locked; it can no longer be modified.' });
-  }
+  // Once cancelled, the order's status and cancellation reason are frozen (it
+  // can't be un-cancelled and a customer's reason must not be overwritten), but
+  // the admin may STILL record/update the refund status + UTR afterwards — this
+  // matters for orders the customer self-cancelled with no refund set yet.
+  const alreadyCancelled = normalizeStatus(existing.status) === 'cancelled';
 
   const { status, deliveryDay, deliveryDate, paymentStatus, refundStatus, refundNote, cancellationReason } = req.body;
   const updates = {};
@@ -198,14 +196,18 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   if (status !== undefined) {
     if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
     const nextStatus = String(status).toLowerCase();
-    if (nextStatus === 'cancelled') {
+    if (alreadyCancelled && nextStatus !== 'cancelled') {
+      return res.status(409).json({ error: 'This order is cancelled; its status can no longer be changed.' });
+    }
+    if (nextStatus === 'cancelled' && !alreadyCancelled) {
       // A cancellation reason is mandatory (may arrive in this same request).
       const reason = (cancellationReason !== undefined ? cancellationReason : existing.cancellationReason) || '';
       if (!String(reason).trim()) {
         return res.status(400).json({ error: 'A cancellation reason is required to cancel an order.' });
       }
-      // Record when the order was cancelled, using the server clock (no custom date).
+      // Record when + who cancelled, using the server clock (no custom date).
       updates.cancelledAt = new Date().toISOString();
+      updates.cancelledBy = 'admin';
     }
     updates.status = nextStatus;
   }
@@ -215,7 +217,9 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   }
   if (deliveryDay !== undefined) updates.deliveryDay = String(deliveryDay || '').trim() || null;
   if (deliveryDate !== undefined) updates.deliveryDate = String(deliveryDate || '').trim() || null;
-  if (cancellationReason !== undefined) {
+  // The cancellation reason is only editable while cancelling; never overwrite
+  // it (especially a customer's reason) once the order is already cancelled.
+  if (cancellationReason !== undefined && !alreadyCancelled) {
     updates.cancellationReason = String(cancellationReason || '').trim() || null;
   }
 

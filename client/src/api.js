@@ -62,6 +62,9 @@ export const loginUser = (payload) => api.post('/auth/login', payload).then((r) 
 export const placeOrder = (payload) => api.post('/orders', payload).then((r) => r.data);
 // Customer's own orders (requires a logged-in user token).
 export const fetchMyOrders = () => api.get('/orders/mine').then((r) => r.data);
+// Customer self-cancellation within the 1-hour window (server-enforced).
+export const cancelMyOrder = (id, reason) =>
+  api.post(`/orders/${id}/cancel`, { reason }).then((r) => r.data);
 
 // ---- Admin ----
 export const adminLogin = (payload) => api.post('/admin/login', payload).then((r) => r.data);

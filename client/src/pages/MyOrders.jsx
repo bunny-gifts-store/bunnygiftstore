@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchMyOrders, apiError } from '../api.js';
+import { fetchMyOrders, cancelMyOrder, apiError } from '../api.js';
+import { STORE_WHATSAPP, STORE_WHATSAPP_INTL } from '../config.js';
 import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
 import {
   ORDER_STATUS_FLOW,
@@ -13,11 +14,44 @@ import OrderStatusBadge from '../admin/OrderStatusBadge.jsx';
 
 const POLL_MS = 15000; // keep My Orders in sync with admin status changes
 
+// Customer self-cancellation is allowed only within 1 hour, and only while the
+// order is still in an early ("Placed") state. The server enforces both.
+const CANCEL_WINDOW_MS = 60 * 60 * 1000;
+const USER_CANCELLABLE = ['pending', 'confirmed'];
+const CANCEL_REASONS = [
+  'Ordered by mistake',
+  'Want to change the design / customization',
+  'Found a better option',
+  'Delivery is taking too long',
+  'No longer needed',
+];
+
+// SQLite CURRENT_TIMESTAMP is UTC with no timezone marker; normalise so the
+// browser doesn't misread it as local time.
+function parseServerDate(value) {
+  if (!value) return null;
+  const s = String(value);
+  const iso = /[TZ]|[+]\d\d:?\d\d$/.test(s) ? s : `${s.replace(' ', 'T')}Z`;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const didLoad = useRef(false);
+
+  // Merge a single updated order back into the list (used after a cancellation)
+  // and optionally flash a success message.
+  const handleUpdated = useCallback((updated, message) => {
+    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+    if (message) {
+      setNotice(message);
+      setTimeout(() => setNotice(''), 6000);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +89,7 @@ export default function MyOrders() {
         {orders.length > 0 && <span className="text-muted small">Auto-updates every few seconds</span>}
       </div>
 
+      {notice && <div className="alert alert-success">{notice}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
       {loading ? (
@@ -68,14 +103,14 @@ export default function MyOrders() {
         </div>
       ) : (
         <div className="my-orders-list">
-          {orders.map((o) => <OrderCard key={o.id} order={o} />)}
+          {orders.map((o) => <OrderCard key={o.id} order={o} onUpdated={handleUpdated} />)}
         </div>
       )}
     </main>
   );
 }
 
-function OrderCard({ order: o }) {
+function OrderCard({ order: o, onUpdated }) {
   const status = normalizeStatus(o.status);
   const cancelled = status === 'cancelled';
   // A refund is only "confirmed" for the customer once the admin marks it
@@ -83,14 +118,43 @@ function OrderCard({ order: o }) {
   // surface any refund status to the user.
   const refundConfirmed =
     cancelled && o.refundStatus === 'successful' && !!(o.refundNote || '').trim();
-  const placed = new Date(o.createdAt);
+  // A customer-cancelled order shows a "call us for the refund" note until the
+  // admin marks the refund Successful (then the real status replaces it).
+  const showRefundCallNote = cancelled && o.cancelledBy === 'user' && !refundConfirmed;
+  const placed = parseServerDate(o.createdAt);
+
+  // Customer self-cancellation gating (mirrors the server rules).
+  const elapsed = placed ? Date.now() - placed.getTime() : Infinity;
+  const withinWindow = elapsed < CANCEL_WINDOW_MS;
+  const earlyState = USER_CANCELLABLE.includes(status);
+  const canUserCancel = earlyState && withinWindow;
+  const windowExpired = earlyState && !withinWindow;
+  const minutesLeft = Math.max(0, Math.ceil((CANCEL_WINDOW_MS - elapsed) / 60000));
+
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelErr, setCancelErr] = useState('');
+
+  const submitCancel = async (reason) => {
+    setCancelling(true);
+    setCancelErr('');
+    try {
+      const updated = await cancelMyOrder(o.id, reason);
+      onUpdated?.(updated, 'Your order has been cancelled successfully.');
+      setShowCancel(false);
+    } catch (err) {
+      setCancelErr(apiError(err, 'Could not cancel the order. Please try again.'));
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <article className="my-order-card">
       <header className="my-order-head">
         <div className="my-order-headmain">
           <div className="my-order-no">Order {formatOrderNo(o.id)}</div>
-          <div className="my-order-date">Placed on {placed.toLocaleDateString()} · {placed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+          <div className="my-order-date">Placed on {formatDateTime(o.createdAt)}</div>
         </div>
 
         {refundConfirmed && (
@@ -102,6 +166,13 @@ function OrderCard({ order: o }) {
             <span className="mor-label">TXN ID</span>
             <span className="mor-sep">:</span>
             <span className="mor-txn">{o.refundNote}</span>
+          </div>
+        )}
+
+        {showRefundCallNote && (
+          <div className="my-order-refund refund-call">
+            📞 Call us for the refund and confirm your order number
+            <a href={`tel:+${STORE_WHATSAPP_INTL}`}>{STORE_WHATSAPP}</a>
           </div>
         )}
 
@@ -164,7 +235,99 @@ function OrderCard({ order: o }) {
           )}
         </div>
       </footer>
+
+      {canUserCancel && (
+        <div className="my-order-actions">
+          <button type="button" className="btn-cancel-order" onClick={() => setShowCancel(true)}>
+            Cancel Order
+          </button>
+          <span className="cancel-window-note">
+            ⏱ You can cancel this order within 1 hour of placing it
+            {minutesLeft > 0 ? ` — about ${minutesLeft} min left.` : '.'}
+          </span>
+        </div>
+      )}
+      {windowExpired && (
+        <div className="my-order-actions">
+          <span className="cancel-expired-note">
+            This order can no longer be cancelled because the 1-hour cancellation window has expired.
+          </span>
+        </div>
+      )}
+
+      {showCancel && (
+        <CancelOrderDialog
+          order={o}
+          busy={cancelling}
+          error={cancelErr}
+          onClose={() => { if (!cancelling) { setShowCancel(false); setCancelErr(''); } }}
+          onConfirm={submitCancel}
+        />
+      )}
     </article>
+  );
+}
+
+// Confirmation dialog with a mandatory cancellation reason (preset list + Other).
+function CancelOrderDialog({ order, busy, error, onClose, onConfirm }) {
+  const [choice, setChoice] = useState('');
+  const [other, setOther] = useState('');
+  const reason = choice === 'Other' ? other.trim() : choice;
+  const valid = choice && (choice !== 'Other' || other.trim().length >= 3);
+
+  return (
+    <div
+      className="cancel-modal"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target.classList.contains('cancel-modal')) onClose(); }}
+    >
+      <div className="cancel-modal-card">
+        <h5 className="cancel-modal-title">Cancel Order {formatOrderNo(order.id)}</h5>
+        <p className="cancel-modal-sub">
+          Please tell us why you'd like to cancel. This action can't be undone.
+        </p>
+
+        <label className="cancel-modal-label">Reason for cancellation <span className="req">*</span></label>
+        <select
+          className="form-select"
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          disabled={busy}
+        >
+          <option value="">Select a reason…</option>
+          {CANCEL_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          <option value="Other">Other</option>
+        </select>
+
+        {choice === 'Other' && (
+          <textarea
+            className="form-control mt-2"
+            rows={3}
+            placeholder="Please tell us the reason…"
+            value={other}
+            onChange={(e) => setOther(e.target.value)}
+            disabled={busy}
+          />
+        )}
+
+        {error && <div className="cancel-modal-err">{error}</div>}
+
+        <div className="cancel-modal-actions">
+          <button type="button" className="btn btn-outline-secondary" onClick={onClose} disabled={busy}>
+            Keep Order
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => onConfirm(reason)}
+            disabled={!valid || busy}
+          >
+            {busy ? 'Cancelling…' : 'Confirm Cancellation'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -234,8 +397,7 @@ function formatDeliveryDate(date) {
 }
 
 function formatDateTime(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
+  const d = parseServerDate(value);
+  if (!d) return '—';
   return `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }

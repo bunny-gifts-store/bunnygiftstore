@@ -72,6 +72,7 @@ db.exec(`
     refundUpdatedAt TEXT,           -- when the refund status was last set by the admin
     cancellationReason TEXT,        -- required when an order is cancelled
     cancelledAt   TEXT,             -- system timestamp when the order was cancelled
+    cancelledBy   TEXT,             -- who cancelled: 'user' | 'admin'
     createdAt     TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -123,6 +124,11 @@ if (!orderCols.includes('cancelledAt')) {
     SET cancelledAt = COALESCE(refundUpdatedAt, createdAt)
     WHERE status = 'cancelled' AND cancelledAt IS NULL
   `);
+}
+if (!orderCols.includes('cancelledBy')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN cancelledBy TEXT`);
+  // Existing cancelled orders were all cancelled from the admin panel.
+  db.exec(`UPDATE orders SET cancelledBy = 'admin' WHERE status = 'cancelled' AND cancelledBy IS NULL`);
 }
 
 export default db;

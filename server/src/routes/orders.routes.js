@@ -4,7 +4,12 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { asyncHandler } from '../helpers.js';
-import { normalizeStatus } from '../orderStatus.js';
+import {
+  normalizeStatus,
+  USER_CANCELLABLE_STATUSES,
+  CANCELLATION_WINDOW_MS,
+  orderAgeMs,
+} from '../orderStatus.js';
 
 const router = Router();
 
@@ -71,6 +76,41 @@ router.post('/', asyncHandler((req, res) => {
 router.get('/mine', requireAuth('user'), asyncHandler((req, res) => {
   const rows = db.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY id DESC').all(req.auth.sub);
   res.json(rows.map(serializeOrder));
+}));
+
+// POST /api/orders/:id/cancel  { reason }  -- customer self-cancellation.
+// Server-side enforces every rule: ownership, early state, the 1-hour window,
+// once-only, and a mandatory reason. Never trust the client's timer.
+router.post('/:id/cancel', requireAuth('user'), asyncHandler((req, res) => {
+  const id = Number(req.params.id);
+  const reason = String(req.body.reason || '').trim();
+
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND userId = ?').get(id, req.auth.sub);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+  const status = normalizeStatus(order.status);
+  if (status === 'cancelled') {
+    return res.status(409).json({ error: 'This order has already been cancelled.' });
+  }
+  if (!USER_CANCELLABLE_STATUSES.includes(status)) {
+    return res.status(409).json({ error: 'This order is already being processed and can no longer be cancelled.' });
+  }
+  if (orderAgeMs(order.createdAt) > CANCELLATION_WINDOW_MS) {
+    return res.status(403).json({
+      error: 'This order can no longer be cancelled because the 1-hour cancellation window has expired.',
+    });
+  }
+  if (reason.length < 3) {
+    return res.status(400).json({ error: 'Please provide a reason for cancelling the order.' });
+  }
+
+  db.prepare(`
+    UPDATE orders
+    SET status = 'cancelled', cancellationReason = ?, cancelledAt = ?, cancelledBy = 'user'
+    WHERE id = ?
+  `).run(reason, new Date().toISOString(), id);
+
+  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
 
 export default router;

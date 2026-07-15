@@ -16,6 +16,23 @@ export const PAYMENT_STATUSES = ['paid', 'pending', 'failed', 'refunded'];
 // Refund lifecycle for cancelled orders. An empty value means "not set yet".
 export const REFUND_STATUSES = ['pending', 'successful', 'failed'];
 
+// A customer may self-cancel only while the order is still in an early state
+// (the "Placed" phase — before it is being processed/shipped/delivered).
+export const USER_CANCELLABLE_STATUSES = ['pending', 'confirmed'];
+
+// Customer self-cancellation is allowed only within this window after placing.
+export const CANCELLATION_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+// Elapsed time since an order was placed. SQLite CURRENT_TIMESTAMP is UTC and
+// lacks a timezone marker, so normalise it before parsing.
+export function orderAgeMs(createdAt) {
+  const s = String(createdAt || '');
+  if (!s) return Infinity;
+  const iso = /[TZ]|[+]\d\d:?\d\d$/.test(s) ? s : `${s.replace(' ', 'T')}Z`;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? Infinity : Date.now() - t;
+}
+
 // Older databases used a 3-state model; map those to the new lifecycle so
 // existing orders keep displaying (and tracking) correctly.
 const LEGACY_STATUS = { received: 'pending', shipped: 'out_for_delivery' };

@@ -746,6 +746,46 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
 /* ---- My Orders page ---- */
 .my-orders-list { display: flex; flex-direction: column; gap: 1.25rem; }
 
+/* Customer cancel-order action + window notes */
+.my-order-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 0.9rem;
+  margin-top: 0.9rem; padding-top: 0.85rem; border-top: 1px dashed #eceaf2;
+}
+.btn-cancel-order {
+  border: 1.5px solid #dc3545; background: #fff; color: #dc3545;
+  padding: 0.4rem 1.1rem; border-radius: 50px; font-weight: 600; font-size: 0.88rem;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.btn-cancel-order:hover { background: #dc3545; color: #fff; }
+.cancel-window-note { font-size: 0.8rem; color: #8a8696; }
+.cancel-expired-note {
+  font-size: 0.82rem; color: #8a5b00; background: #fff6e0;
+  border: 1px solid #ffe6ad; border-radius: 8px; padding: 0.5rem 0.8rem;
+}
+
+/* Cancel confirmation dialog */
+.cancel-modal {
+  position: fixed; inset: 0; z-index: 1080;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  background: rgba(26, 10, 46, 0.55);
+}
+.cancel-modal-card {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 440px;
+  padding: 1.5rem; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+.cancel-modal-title { font-weight: 700; color: #1a1a2e; margin-bottom: 0.25rem; }
+.cancel-modal-sub { color: #6c757d; font-size: 0.9rem; margin-bottom: 1rem; }
+.cancel-modal-label { font-weight: 600; font-size: 0.85rem; color: #4a4557; margin-bottom: 0.3rem; display: block; }
+.cancel-modal-label .req { color: #dc3545; }
+.cancel-modal-err {
+  margin-top: 0.75rem; font-size: 0.85rem; color: #a12020;
+  background: #fbdcdc; border-radius: 8px; padding: 0.5rem 0.8rem;
+}
+.cancel-modal-actions {
+  display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem;
+}
+.cancel-modal-actions .btn { border-radius: 50px; padding: 0.5rem 1.3rem; font-weight: 600; }
+
 /* Beautiful page title: gradient text with a small accent underline */
 .my-orders-title {
   display: inline-flex; align-items: center; gap: 0.5rem;
@@ -1052,7 +1092,15 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
   font-weight: 700; color: #8a8f96;
 }
 .oul-value { font-weight: 600; color: #33373d; word-break: break-word; }
-.order-lock-msg { font-size: 0.82rem; color: #a12020; margin-top: 0.25rem; }
+.order-lock-msg { font-size: 0.82rem; color: #7a2b2b; margin-top: 0.25rem; }
+/* Editable refund block inside the locked (cancelled) order view */
+.order-refund-inline {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem;
+  margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid #efe3e3;
+}
+.order-refund-inline .order-update-field .form-select,
+.order-refund-inline .order-update-field .form-control { border-radius: 10px; border: 1px solid #ddd8ec; }
+@media (max-width: 575.98px) { .order-refund-inline { grid-template-columns: 1fr; } }
 @media (max-width: 575.98px) {
   .order-update-body { grid-template-columns: 1fr; }
   .oul-row { flex-direction: column; gap: 0.1rem; }
@@ -1104,6 +1152,15 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
 .my-order-refund.refund-pending .mor-value { color: #ffdf8a; }
 .my-order-refund.refund-failed .mor-value { color: #ffb0b8; }
 .my-order-refund.refund-none .mor-value { color: rgba(255, 255, 255, 0.85); }
+/* Highlighted "call us for the refund" note (customer-cancelled, not yet refunded) */
+.my-order-refund.refund-call {
+  gap: 0.4rem;
+  background: #ffe08a; border-color: #ffd25a;
+  color: #5a4300; font-weight: 700; font-size: 0.82rem;
+}
+.my-order-refund.refund-call a {
+  color: #5a4300; font-weight: 800; text-decoration: underline; white-space: nowrap;
+}
 @media (max-width: 640px) {
   .my-order-refund { order: 3; flex-basis: 100%; justify-content: flex-start; margin-top: 2px; }
 }

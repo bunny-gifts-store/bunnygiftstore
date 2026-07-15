@@ -29,6 +29,20 @@ const formatDeliveryDate = (dateStr) => {
     ? dt.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
 };
+// cancelledAt is stored as an ISO timestamp (with a 'Z'), so it parses directly.
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+const cancelledByLabel = (by) => {
+  const v = String(by || '').toLowerCase();
+  if (v === 'user') return 'Customer';
+  if (v === 'admin') return 'Admin (store)';
+  return '—';
+};
 
 export default function OrdersAdmin() {
   const [orders, setOrders] = useState([]);
@@ -63,8 +77,6 @@ export default function OrdersAdmin() {
       throw err;
     }
   };
-
-  const changePayment = (id, paymentStatus) => patchOrder(id, { paymentStatus }).catch(() => {});
 
   const openDetails = (o) => {
     if (open === o.id) { setOpen(null); return; }
@@ -111,6 +123,24 @@ export default function OrdersAdmin() {
     setSavingOrder(true);
     try {
       await patchOrder(id, patch);
+      setSavedOrder(true);
+    } catch (err) {
+      setOrderError(apiError(err));
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  // Update just the refund on an already-cancelled order (status/reason stay
+  // locked; this is how a user-cancelled order gets its refund recorded).
+  const saveRefund = async (id) => {
+    setOrderError('');
+    if (refund.status === 'successful' && !refund.note.trim()) {
+      setOrderError('A UTR / transaction number is required for a successful refund.'); return;
+    }
+    setSavingOrder(true);
+    try {
+      await patchOrder(id, { refundStatus: refund.status, refundNote: refund.note.trim() });
       setSavedOrder(true);
     } catch (err) {
       setOrderError(apiError(err));
@@ -202,17 +232,11 @@ export default function OrdersAdmin() {
                         </div>
                       </td>
                       <td>
-                        <select
-                          className={`form-select form-select-sm order-status-select payment-${o.paymentStatus || 'paid'}`}
-                          value={o.paymentStatus || 'paid'}
-                          onChange={(e) => changePayment(o.id, e.target.value)}
-                          disabled={o.status === 'cancelled'}
-                          aria-label="Change payment status"
-                        >
-                          {Object.entries(PAYMENT_STATUS_LABELS).map(([s, label]) => (
-                            <option key={s} value={s}>{label}</option>
-                          ))}
-                        </select>
+                        {/* Payment is confirmed at checkout (customer sends the UTR),
+                            so it's shown read-only — the admin never changes it. */}
+                        <span className={`payment-chip payment-${o.paymentStatus || 'paid'}`}>
+                          {PAYMENT_STATUS_LABELS[o.paymentStatus] || 'Paid'}
+                        </span>
                       </td>
                       <td className="small">
                         {o.deliveryDate ? (
@@ -266,10 +290,54 @@ export default function OrdersAdmin() {
                                   {locked ? (
                                     <div className="order-update-locked">
                                       <div className="oul-row"><span className="oul-label">Status</span><OrderStatusBadge status={o.status} /></div>
+                                      <div className="oul-row"><span className="oul-label">Cancelled By</span><span className="oul-value">{cancelledByLabel(o.cancelledBy)}</span></div>
+                                      <div className="oul-row"><span className="oul-label">Cancelled On</span><span className="oul-value">{formatDateTime(o.cancelledAt)}</span></div>
                                       <div className="oul-row"><span className="oul-label">Cancellation Reason</span><span className="oul-value">{o.cancellationReason || '—'}</span></div>
-                                      <div className="oul-row"><span className="oul-label">Refund Status</span><span className="oul-value">{refundLabel(o.refundStatus) || '—'}</span></div>
-                                      <div className="oul-row"><span className="oul-label">UTR / Txn No.</span><span className="oul-value">{o.refundNote || '—'}</span></div>
-                                      <div className="order-lock-msg">This order is cancelled and locked — no further changes are allowed.</div>
+                                      <div className="order-lock-msg">Status &amp; reason are locked. You can still record the refund below.</div>
+
+                                      {(() => {
+                                        const refundDirty = refund.status !== (o.refundStatus || '') || refund.note !== (o.refundNote || '');
+                                        const canSaveRefund = refundDirty && !savingOrder;
+                                        return (
+                                          <div className="order-refund-inline">
+                                            <div className="order-update-field">
+                                              <label className="delivery-label">Refund Status</label>
+                                              <select
+                                                className="form-select"
+                                                value={refund.status}
+                                                onChange={(e) => { setRefund((r) => ({ ...r, status: e.target.value })); setSavedOrder(false); setOrderError(''); }}
+                                              >
+                                                <option value="">Not set</option>
+                                                {REFUND_STATUS_OPTIONS.map((s) => (
+                                                  <option key={s} value={s}>{REFUND_STATUS_LABELS[s]}</option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                            <div className="order-update-field">
+                                              <label className="delivery-label">
+                                                UTR / Txn No. {refund.status === 'successful' ? <span className="req">*</span> : <span className="opt">(optional)</span>}
+                                              </label>
+                                              <input
+                                                type="text"
+                                                className="form-control"
+                                                placeholder="e.g. UTR21343456"
+                                                value={refund.note}
+                                                onChange={(e) => { setRefund((r) => ({ ...r, note: e.target.value })); setSavedOrder(false); setOrderError(''); }}
+                                              />
+                                            </div>
+                                            {orderError && <div className="order-update-err order-update-field-full">{orderError}</div>}
+                                            <div className="order-update-field-full">
+                                              <button
+                                                className={`btn order-update-btn${savedOrder && !refundDirty ? ' is-saved' : ''}`}
+                                                onClick={() => saveRefund(o.id)}
+                                                disabled={!canSaveRefund}
+                                              >
+                                                {savingOrder ? 'Saving…' : savedOrder && !refundDirty ? '✓ Saved' : (o.refundStatus || o.refundNote) ? 'Update Refund' : 'Save Refund'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   ) : (
                                     <div className="order-update-body">
