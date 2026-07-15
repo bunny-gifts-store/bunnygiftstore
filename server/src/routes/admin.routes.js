@@ -235,6 +235,14 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   }
 
   // Refund fields (used for cancelled orders; refund is done manually via PhonePe etc.).
+  // Once a refund is completed (marked Successful), it is finalised and locked —
+  // no further refund changes are accepted.
+  const refundFinalised = String(existing.refundStatus || '').toLowerCase() === 'successful';
+  if (refundStatus !== undefined || refundNote !== undefined) {
+    if (refundFinalised) {
+      return res.status(409).json({ error: 'The refund is already completed and can no longer be changed.' });
+    }
+  }
   if (refundStatus !== undefined) {
     if (!isValidRefundStatus(refundStatus)) return res.status(400).json({ error: 'Invalid refund status.' });
     updates.refundStatus = String(refundStatus || '').toLowerCase() || null;

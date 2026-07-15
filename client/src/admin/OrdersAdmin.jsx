@@ -294,6 +294,15 @@ export default function OrdersAdmin() {
                                       <div className="oul-row"><span className="oul-label">Cancelled By</span><span className="oul-value">{cancelledByLabel(o.cancelledBy)}</span></div>
                                       <div className="oul-row"><span className="oul-label">Cancelled On</span><span className="oul-value">{formatDateTime(o.cancelledAt)}</span></div>
                                       <div className="oul-row"><span className="oul-label">Cancellation Reason</span><span className="oul-value">{o.cancellationReason || '—'}</span></div>
+
+                                      {o.refundStatus === 'successful' ? (
+                                        <>
+                                          <div className="oul-row"><span className="oul-label">Refund Status</span><span className="oul-value" style={{ color: '#1f7d57' }}>{refundLabel(o.refundStatus)}</span></div>
+                                          <div className="oul-row"><span className="oul-label">UTR / Txn No.</span><span className="oul-value">{o.refundNote || '—'}</span></div>
+                                          <div className="oul-row"><span className="oul-label">Refunded On</span><span className="oul-value">{formatDateTime(o.refundUpdatedAt)}</span></div>
+                                          <div className="order-lock-msg">Refund completed — this order is fully locked.</div>
+                                        </>
+                                      ) : (<>
                                       <div className="order-lock-msg">Status &amp; reason are locked. You can still record the refund below.</div>
 
                                       {(() => {
@@ -339,6 +348,7 @@ export default function OrdersAdmin() {
                                           </div>
                                         );
                                       })()}
+                                      </>)}
                                     </div>
                                   ) : delivered ? (
                                     <div className="order-update-locked">
