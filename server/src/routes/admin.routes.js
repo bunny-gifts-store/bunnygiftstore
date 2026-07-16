@@ -6,7 +6,7 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler } from '../helpers.js';
-import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus } from '../orderStatus.js';
+import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus, isValidUtr, UTR_HELP } from '../orderStatus.js';
 import { serializeOrder } from './orders.routes.js';
 
 const router = Router();
@@ -247,7 +247,24 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
     if (!isValidRefundStatus(refundStatus)) return res.status(400).json({ error: 'Invalid refund status.' });
     updates.refundStatus = String(refundStatus || '').toLowerCase() || null;
   }
-  if (refundNote !== undefined) updates.refundNote = String(refundNote || '').trim() || null;
+  if (refundNote !== undefined) {
+    const note = String(refundNote || '').trim();
+    // The refund note is a UTR: any value entered must be a valid 12-digit UTR.
+    if (note && !isValidUtr(note)) {
+      return res.status(400).json({ error: `Invalid refund UTR. ${UTR_HELP}` });
+    }
+    updates.refundNote = note || null;
+  }
+  // A completed (successful) refund must carry a valid UTR — use the incoming
+  // note, or fall back to whatever is already stored.
+  const effectiveRefundStatus =
+    (refundStatus !== undefined ? String(refundStatus || '').toLowerCase() : String(existing.refundStatus || '').toLowerCase());
+  if (effectiveRefundStatus === 'successful') {
+    const effectiveNote = refundNote !== undefined ? String(refundNote || '').trim() : String(existing.refundNote || '').trim();
+    if (!isValidUtr(effectiveNote)) {
+      return res.status(400).json({ error: `A valid UTR is required for a successful refund. ${UTR_HELP}` });
+    }
+  }
   // Stamp the refund update time whenever any refund field changes.
   if (refundStatus !== undefined || refundNote !== undefined) {
     updates.refundUpdatedAt = new Date().toISOString();

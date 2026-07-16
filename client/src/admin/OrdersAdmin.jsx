@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { adminFetchOrders, adminFetchProducts, adminUpdateOrder, apiError } from '../api.js';
 import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
+import { isValidUtr, UTR_HELP } from '../config.js';
 import {
   ORDER_STATUS_OPTIONS,
   ORDER_STATUS_LABELS,
@@ -113,6 +114,9 @@ export default function OrdersAdmin() {
       if (refund.status === 'successful' && !refund.note.trim()) {
         setOrderError('A UTR / transaction number is required for a successful refund.'); return;
       }
+      if (refund.note.trim() && !isValidUtr(refund.note)) {
+        setOrderError(`Invalid UTR. ${UTR_HELP}`); return;
+      }
     }
     const patch = { status: draftStatus };
     if (isCancel) {
@@ -137,6 +141,9 @@ export default function OrdersAdmin() {
     setOrderError('');
     if (refund.status === 'successful' && !refund.note.trim()) {
       setOrderError('A UTR / transaction number is required for a successful refund.'); return;
+    }
+    if (refund.note.trim() && !isValidUtr(refund.note)) {
+      setOrderError(`Invalid UTR. ${UTR_HELP}`); return;
     }
     setSavingOrder(true);
     try {
@@ -330,9 +337,11 @@ export default function OrdersAdmin() {
                                               <input
                                                 type="text"
                                                 className="form-control"
-                                                placeholder="e.g. UTR21343456"
+                                                placeholder="12-digit UTR number"
+                                                inputMode="numeric"
+                                                maxLength={12}
                                                 value={refund.note}
-                                                onChange={(e) => { setRefund((r) => ({ ...r, note: e.target.value })); setSavedOrder(false); setOrderError(''); }}
+                                                onChange={(e) => { setRefund((r) => ({ ...r, note: e.target.value.replace(/\D/g, '').slice(0, 12) })); setSavedOrder(false); setOrderError(''); }}
                                               />
                                             </div>
                                             {orderError && <div className="order-update-err order-update-field-full">{orderError}</div>}
@@ -404,9 +413,11 @@ export default function OrdersAdmin() {
                                             <input
                                               type="text"
                                               className="form-control"
-                                              placeholder="e.g. UTR21343456"
+                                              placeholder="12-digit UTR number"
+                                              inputMode="numeric"
+                                              maxLength={12}
                                               value={refund.note}
-                                              onChange={(e) => { setRefund((r) => ({ ...r, note: e.target.value })); setSavedOrder(false); setOrderError(''); }}
+                                              onChange={(e) => { setRefund((r) => ({ ...r, note: e.target.value.replace(/\D/g, '').slice(0, 12) })); setSavedOrder(false); setOrderError(''); }}
                                             />
                                           </div>
                                           <div className="order-update-warn order-update-field-full">

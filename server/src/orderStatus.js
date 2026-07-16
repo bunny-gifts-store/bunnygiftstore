@@ -16,6 +16,17 @@ export const PAYMENT_STATUSES = ['paid', 'pending', 'failed', 'refunded'];
 // Refund lifecycle for cancelled orders. An empty value means "not set yet".
 export const REFUND_STATUSES = ['pending', 'successful', 'failed'];
 
+// A UPI / bank UTR (Unique Transaction Reference) is a 12-digit number — the
+// reference the payer and payee share for every UPI/IMPS/NEFT payment. It's what
+// customers read off their PhonePe receipt and what the admin records for a
+// refund, so both the checkout transaction ID and the refund note must match it.
+export const UTR_REGEX = /^\d{12}$/;
+export const UTR_HELP = 'Enter the 12-digit UTR (Unique Transaction Reference) number.';
+
+export function isValidUtr(value) {
+  return UTR_REGEX.test(String(value || '').trim());
+}
+
 // A customer may self-cancel only while the order is still in an early state
 // (the "Placed" phase — before it is being processed/shipped/delivered).
 export const USER_CANCELLABLE_STATUSES = ['pending', 'confirmed'];

@@ -9,6 +9,8 @@ import {
   USER_CANCELLABLE_STATUSES,
   CANCELLATION_WINDOW_MS,
   orderAgeMs,
+  isValidUtr,
+  UTR_HELP,
 } from '../orderStatus.js';
 
 const router = Router();
@@ -45,6 +47,10 @@ router.post('/', asyncHandler((req, res) => {
   if (!name || !email || !phone || !address || !city || !state || !pincode || !transactionId) {
     return res.status(400).json({ error: 'Missing required order fields' });
   }
+  // The transaction ID must be a valid UTR (12-digit UPI reference number).
+  if (!isValidUtr(transactionId)) {
+    return res.status(400).json({ error: `Invalid transaction ID. ${UTR_HELP}` });
+  }
 
   // Prefer the logged-in user's id from the token. If that's unavailable
   // (missing/expired token), fall back to matching the order's phone against a
@@ -64,7 +70,7 @@ router.post('/', asyncHandler((req, res) => {
        totalAmount, totalItems, items, status, paymentStatus)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'paid')
   `).run(
-    userId, name, email, phone, address, city, state, pincode, transactionId,
+    userId, name, email, phone, address, city, state, pincode, String(transactionId).trim(),
     Number(totalAmount || 0), Number(totalItems || 0),
     items ? JSON.stringify(items) : null
   );

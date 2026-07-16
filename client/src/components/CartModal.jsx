@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { placeOrder, apiError } from '../api.js';
 import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
+import { isValidUtr, UTR_HELP } from '../config.js';
 
 const EMPTY_FORM = { name: '', email: '', phone: '', pincode: '', address: '', city: '', state: '' };
 
@@ -51,6 +52,10 @@ export default function CartModal() {
   const submitOrder = async () => {
     if (!transactionId.trim()) {
       setError('Please enter the Transaction ID from your PhonePe app before submitting.');
+      return;
+    }
+    if (!isValidUtr(transactionId)) {
+      setError(`Invalid transaction ID. ${UTR_HELP}`);
       return;
     }
     setSubmitting(true);
@@ -256,11 +261,13 @@ function PaymentStep({ transactionId, setTransactionId, submitting, onSubmit }) 
         </div>
       </div>
       <div className="mt-4">
-        <label htmlFor="transactionIdInput" className="form-label fw-semibold">Transaction ID</label>
+        <label htmlFor="transactionIdInput" className="form-label fw-semibold">Transaction ID (UTR)</label>
         <input id="transactionIdInput" type="text" className="form-control form-control-lg"
-               placeholder="Enter your PhonePe transaction ID" autoComplete="off"
-               value={transactionId} onChange={(e) => setTransactionId(e.target.value)} required />
-        <small className="text-muted">Please enter the transaction ID shown in your PhonePe app after the payment.</small>
+               placeholder="12-digit UTR number" autoComplete="off"
+               inputMode="numeric" maxLength={12}
+               value={transactionId}
+               onChange={(e) => setTransactionId(e.target.value.replace(/\D/g, '').slice(0, 12))} required />
+        <small className="text-muted">Enter the 12-digit UTR (transaction reference) shown in your PhonePe app after the payment.</small>
       </div>
       <div className="mt-4 text-center">
         <button type="button" className="btn btn-primary btn-lg" onClick={onSubmit} disabled={submitting}>
