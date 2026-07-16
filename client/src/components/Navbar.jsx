@@ -3,6 +3,17 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useUI } from '../context/UIContext.jsx';
+import HeaderSearch from './HeaderSearch.jsx';
+
+// "Ramesh Nerella" -> "RN", "Ramesh" -> "R". Falls back to a dot rather than
+// rendering an empty circle if the name is missing.
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '•';
+  const first = parts[0][0];
+  const second = parts.length > 1 ? parts[1][0] : '';
+  return (first + second).toUpperCase();
+}
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);          // mobile collapse
@@ -12,6 +23,12 @@ export default function Navbar() {
   const { openCart } = useUI();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+
+  // Open the user menu on hover only where hovering exists. On a touchscreen a
+  // tap also fires mouseenter, which would race the click handler below and
+  // leave the menu flickering open/closed.
+  const hoverable = typeof window !== 'undefined'
+    && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
 
   const close = () => { setOpen(false); setUserMenuOpen(false); };
 
@@ -46,13 +63,18 @@ export default function Navbar() {
           >
             <span className="navbar-toggler-icon"></span>
           </button>
+
+          {/* Outside the collapse: search stays visible on phones and tablets
+              instead of hiding behind the hamburger. It wraps onto its own
+              full-width row below the brand once the navbar collapses. */}
+          <HeaderSearch onSelect={close} />
+
           <div className={`collapse navbar-collapse${open ? ' show' : ''}`}>
             <ul className="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
               <li className="nav-item">
                 <a className="nav-link" href="/#products" onClick={goHome}>Home</a>
               </li>
-              <li className="nav-item"><NavLink className="nav-link" to="/about" onClick={close}>About</NavLink></li>
-              <li className="nav-item"><NavLink className="nav-link" to="/contact" onClick={close}>Contact</NavLink></li>
+              {/* About and Contact live in the footer links instead. */}
               {user && (
                 <li className="nav-item"><NavLink className="nav-link" to="/my-orders" onClick={close}>My Orders</NavLink></li>
               )}
@@ -68,7 +90,14 @@ export default function Navbar() {
               </li>
 
               {user && (
-                <li className={`nav-item dropdown ms-lg-3${userMenuOpen ? ' show' : ''}`} ref={userMenuRef}>
+                <li
+                  className={`nav-item dropdown ms-lg-3${userMenuOpen ? ' show' : ''}`}
+                  ref={userMenuRef}
+                  {...(hoverable && {
+                    onMouseEnter: () => setUserMenuOpen(true),
+                    onMouseLeave: () => setUserMenuOpen(false),
+                  })}
+                >
                   <a
                     className="nav-link nav-user-toggle"
                     href="#"
@@ -76,7 +105,7 @@ export default function Navbar() {
                     aria-expanded={userMenuOpen}
                     onClick={(e) => { e.preventDefault(); setUserMenuOpen((v) => !v); }}
                   >
-                    <span className="nav-user-avatar">👤</span>
+                    <span className="nav-user-avatar" aria-hidden="true">{initials(user.username)}</span>
                     <span className="nav-user-name">{user.username}</span>
                     <span className="nav-user-caret">▾</span>
                   </a>

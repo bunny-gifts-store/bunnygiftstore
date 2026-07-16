@@ -12,6 +12,8 @@ export default function Footer() {
       <p>🐰 Spreading Joy with Every Gift 🎁</p>
       <p className="footer-links">
         <Link to="/privacy-policy">Privacy Policy</Link> ·{' '}
+        <Link to="/about">About</Link> ·{' '}
+        <Link to="/contact">Contact</Link> ·{' '}
         <Link to="/shipping-policy">Shipping Policy</Link> ·{' '}
         <Link to="/terms">Terms &amp; Conditions</Link> ·{' '}
         <Link to="/refund-policy">Refund Policy</Link>

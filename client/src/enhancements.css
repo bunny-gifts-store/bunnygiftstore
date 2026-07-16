@@ -136,10 +136,41 @@ header {
   white-space: nowrap;
   cursor: pointer;
 }
-.nav-user-name { font-weight: 600; }
+/* Roomy enough for a typical full name; still capped so an unusually long one
+   ellipsises instead of pushing the navbar off its single line. */
+.nav-user-name {
+  font-weight: 600;
+  display: inline-block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .nav-user-caret { font-size: 0.7rem; opacity: 0.85; transition: transform 0.2s; }
 .nav-item.dropdown.show .nav-user-caret { transform: rotate(180deg); }
-.nav-user-toggle .nav-user-avatar { font-size: 1rem; }
+
+/* Initials badge in place of the old emoji. */
+.nav-user-toggle .nav-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* The menu opens on hover, so it must sit flush against the toggle — any gap
+   would drop the hover on the way down and close it before it's reachable. */
+.navbar .nav-item.dropdown .dropdown-menu { margin-top: 0; }
 .navbar .dropdown-menu { border: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); }
 .navbar .dropdown-menu .dropdown-item { cursor: pointer; }
 
@@ -1309,3 +1340,254 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
 
 /* Small helper so hero-less pages breathe a little under the sticky navbar */
 .page-with-navbar-offset { padding-top: 0.5rem; }
+
+/* ============================================================
+   Header search
+   Sits in the navbar between the brand and the links. The field is
+   translucent so it reads as part of the dark header gradient, while the
+   results panel is light like the navbar dropdown menu.
+   ============================================================ */
+.header-search {
+  position: relative;
+  /* A real basis and floor: with `flex-basis:auto` an empty input contributes
+     no width, so the nav links squeezed the field down to nothing. The upper
+     bound lets the field take up the slack between the brand and the links
+     rather than leaving it as a dead gap in the middle of the header. */
+  flex: 1 1 260px;
+  min-width: 170px;
+  max-width: 520px;
+  margin: 0 1.5rem;
+}
+
+/* The brand and links leave little room once the search joins the row: at the
+   theme's 2rem gap and 1rem link padding the row over-runs its width, and since
+   the links can't shrink the field absorbed all of it and collapsed.
+   Tightening the gap and padding buys back the space the field needs. */
+@media (min-width: 992px) {
+  /* Bootstrap grows the collapse, and its ms-auto turns that share of the free
+     space into a dead gap before the links. Pinning it to its content lets the
+     search take the slack instead, leaving even gutters either side. */
+  .navbar .navbar-collapse { flex-grow: 0; }
+
+  .navbar .navbar-nav { gap: 0.35rem; flex-wrap: nowrap; }
+  .navbar .navbar-nav .nav-link {
+    white-space: nowrap;
+    padding-left: 0.45rem !important;  /* theme sets 1rem !important */
+    padding-right: 0.45rem !important;
+  }
+  /* Keep results legible even where the field itself stays narrow. */
+  .header-search-panel { min-width: 340px; }
+}
+
+/* Just past the expand point the row is at its tightest: the links have
+   returned to the header but the viewport hasn't grown to fit them yet. Trading
+   some of the theme's 2rem gutter for field width keeps it on one line. */
+@media (min-width: 992px) and (max-width: 1279.98px) {
+  .navbar { padding-left: 1rem; padding-right: 1rem; }
+  .header-search { min-width: 150px; margin: 0 1rem; }
+  /* Only wide screens have room to spell a long name out in full. */
+  .nav-user-name { max-width: 110px; }
+}
+
+/* Wide enough to breathe: even gutters around the field and the full name. */
+@media (min-width: 1280px) {
+  .header-search { margin: 0 2rem; }
+}
+
+/* Tightest of all, just above the collapse point: the brand is the single
+   widest item in the row, so easing it down is what lets the links and the
+   field share the line instead of running off the edge. */
+@media (min-width: 992px) and (max-width: 1099.98px) {
+  .navbar .logo { font-size: 1.45rem; }
+  .navbar .logo::before { font-size: 1.6rem; }
+}
+
+
+.header-search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.header-search-field:hover { background: rgba(255, 255, 255, 0.17); }
+.header-search-field:focus-within {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--bg-light-purple);
+  box-shadow: 0 0 0 3px rgba(199, 125, 255, 0.25);
+}
+
+.header-search-icon { color: rgba(255, 255, 255, 0.75); flex: 0 0 auto; }
+
+.header-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  padding: 0;
+}
+.header-search-input::placeholder { color: rgba(255, 255, 255, 0.65); }
+/* The custom clear button below replaces the browser's native one. */
+.header-search-input::-webkit-search-cancel-button,
+.header-search-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+
+.header-search-clear {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.header-search-clear:hover { color: #fff; }
+
+/* ---------- Results panel ---------- */
+.header-search-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  z-index: 1100;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.header-search-note {
+  margin: 0;
+  padding: 1rem;
+  color: #6c757d;
+  font-size: 0.92rem;
+  text-align: center;
+}
+.header-search-note-sub {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: #adb5bd;
+}
+
+.header-search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  /* The theme's `nav ul` rule (display:flex; gap:2rem) also matches this list,
+     since the search sits inside <nav> — that laid the results out in a row.
+     Stack them explicitly rather than inherit the nav-link layout. */
+  display: block;
+  gap: 0;
+}
+.header-search-list > li { display: block; }
+
+.header-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.header-search-item.active,
+.header-search-item:hover { background: rgba(199, 125, 255, 0.15); }
+
+.header-search-thumb {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--light-bg, #f8f9fa);
+}
+
+.header-search-text { min-width: 0; flex: 1 1 auto; }
+.header-search-name {
+  display: block;
+  color: #1a1a2e;
+  font-weight: 600;
+  font-size: 0.92rem;
+  /* Long product names truncate rather than reflow the row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-search-cat {
+  display: block;
+  color: #6c757d;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-search-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+.header-search-price { color: #1a1a2e; font-weight: 700; font-size: 0.88rem; white-space: nowrap; }
+.header-search-oos {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #dc3545;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* The typed fragment inside a result name. */
+mark.search-hit {
+  padding: 0;
+  background: transparent;
+  color: var(--bg-secondary-color);
+  font-weight: 800;
+}
+
+.header-search-count {
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border-top: 1px solid #f1f1f4;
+  background: #fcfcfd;
+  color: #6c757d;
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+/* ---------- Responsive ----------
+   Below the navbar's expand point the links collapse. The search sits outside
+   the collapse and takes a full-width row of its own (the navbar container
+   wraps here), so it stays reachable without opening the hamburger. */
+@media (max-width: 991.98px) {
+  .header-search {
+    flex: 0 0 100%;
+    max-width: none;
+    margin: 0.6rem 0 0.2rem;
+  }
+  .header-search-list { max-height: min(60vh, 340px); }
+}
+
+@media (max-width: 575.98px) {
+  .header-search-input { font-size: 16px; } /* iOS zooms on focus below 16px */
+  .header-search-thumb { width: 38px; height: 38px; }
+  .header-search-name { font-size: 0.88rem; }
+  .header-search-side { display: none; }    /* keep the row readable on narrow phones */
+}
