@@ -92,5 +92,31 @@ then the order is saved to the DB and an order email is opened to the store owne
 `PORT`, `JWT_SECRET` (set a strong secret in prod), `ADMIN_USERNAME`,
 `ADMIN_PASSWORD`, `CORS_ORIGINS`, `DB_PATH`, `UPLOADS_DIR`.
 
+### Data persistence (production) — Turso
+Locally the API uses a plain SQLite file (`server/bunnystore.db`). In production
+on an ephemeral host (e.g. Render free tier) that file is wiped on every
+restart, which would erase registered users and orders overnight. To persist
+data, the API uses **Turso** (a hosted, SQLite-compatible libSQL database) via a
+local **embedded replica** — set these two env vars and it switches on
+automatically (no code change, reads stay fast & synchronous):
+
+```
+TURSO_DATABASE_URL=libsql://<your-db>-<org>.turso.io
+TURSO_AUTH_TOKEN=<token>
+# optional: TURSO_SYNC_INTERVAL=60   (seconds between background pulls)
+```
+
+One-time setup:
+```bash
+turso auth signup
+turso db create bunnygiftstore
+turso db show bunnygiftstore --url      # -> TURSO_DATABASE_URL
+turso db tokens create bunnygiftstore   # -> TURSO_AUTH_TOKEN
+```
+The first boot creates the schema and seeds products into Turso; later boots
+re-sync from it. Uploaded product images (`server/uploads`) are **not** covered
+by this and still need durable storage (paid disk or an object store) to survive
+restarts.
+
 For a split deployment (static frontend on one host, API on another), build the
 frontend with `VITE_API_BASE=https://your-api-host` so the SPA calls the right API.

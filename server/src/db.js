@@ -1,13 +1,55 @@
-import Database from 'better-sqlite3';
+import Database from 'libsql';
 import fs from 'fs';
 import { config } from './config.js';
 
 // Ensure uploads dir exists.
 fs.mkdirSync(config.uploadsDir, { recursive: true });
 
-export const db = new Database(config.dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// ---------------------------------------------------------------------------
+// Persistence via Turso (libSQL) — an EMBEDDED REPLICA.
+//
+// `libsql` is a drop-in, better-sqlite3-compatible synchronous driver, so every
+// existing `db.prepare(...).get()/.all()/.run()` call keeps working unchanged.
+//
+//   - Production (Turso env vars set): the DB is a local SQLite file that syncs
+//     with a remote Turso primary. Reads are served locally (fast, synchronous);
+//     writes are forwarded to the primary. The local file is disposable — on an
+//     ephemeral host (e.g. Render free tier) it is recreated and re-synced from
+//     Turso on every boot, so users / orders / products PERSIST across restarts
+//     instead of being wiped overnight.
+//   - Local dev (no Turso env vars): falls back to a plain local SQLite file,
+//     behaving exactly like the previous better-sqlite3 setup.
+// ---------------------------------------------------------------------------
+const syncUrl = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+export const usingTurso = Boolean(syncUrl && authToken);
+
+export const db = usingTurso
+  ? new Database(config.dbPath, {
+      syncUrl,
+      authToken,
+      // Pull remote changes in the background every N seconds (0/undefined = off).
+      syncInterval: Number(process.env.TURSO_SYNC_INTERVAL) || 60,
+    })
+  : new Database(config.dbPath);
+
+if (usingTurso) {
+  // Pull the latest schema + data from the Turso primary BEFORE running the
+  // migrations/seed below, so existing data is visible and the seed correctly
+  // skips re-inserting products.
+  try {
+    db.sync();
+    console.log('[turso] Embedded replica synced with remote primary.');
+  } catch (err) {
+    console.error('[turso] Initial sync failed:', err.message);
+  }
+  // WAL is managed internally by libSQL for replicas; only foreign keys matter
+  // here (for our ON DELETE behaviour).
+  try { db.pragma('foreign_keys = ON'); } catch { /* non-critical on replicas */ }
+} else {
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (

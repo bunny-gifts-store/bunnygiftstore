@@ -23,22 +23,33 @@ services:
         sync: false                # you enter this in the Render UI on deploy
       - key: CORS_ORIGINS
         value: https://bunnygiftsstore.com,https://www.bunnygiftsstore.com
+      # DATA PERSISTENCE via Turso (free, survives restarts) — see note below.
+      # The DB runs as a libSQL embedded replica synced to a remote Turso primary,
+      # so users / orders / products are NOT wiped when the free instance sleeps.
+      - key: TURSO_DATABASE_URL
+        sync: false                # paste your Turso DB URL (libsql://...) in the Render UI
+      - key: TURSO_AUTH_TOKEN
+        sync: false                # paste your Turso auth token in the Render UI
 
 # ---------------------------------------------------------------------------
 # DATA PERSISTENCE (do this before taking real orders):
-# The free tier has an EPHEMERAL filesystem — the SQLite DB + uploaded images
-# reset whenever the service restarts or sleeps. To keep users/orders forever,
-# upgrade the instance to a paid plan and add a disk:
+# The free tier has an EPHEMERAL filesystem — a plain local SQLite DB resets
+# whenever the service restarts or sleeps, wiping users/orders overnight.
 #
-#   plan: starter                  # ~$7/mo, and enables a disk
-#   ...
-#   envVars:
-#     - key: DB_PATH
-#       value: /data/bunnystore.db
-#     - key: UPLOADS_DIR
-#       value: /data/uploads
-#   disk:
-#     name: bunny-data
-#     mountPath: /data
-#     sizeGB: 1
+# FIX (free): use Turso (https://turso.tech) — a hosted, SQLite-compatible DB.
+# The server uses it automatically once TURSO_DATABASE_URL + TURSO_AUTH_TOKEN
+# are set (above). One-time setup with the Turso CLI:
+#
+#   turso auth signup
+#   turso db create bunnygiftstore
+#   turso db show bunnygiftstore --url          # -> TURSO_DATABASE_URL
+#   turso db tokens create bunnygiftstore       # -> TURSO_AUTH_TOKEN
+#
+# Paste both values into the Render service's Environment settings, then deploy.
+# The first boot creates the schema + seeds products in Turso; every later boot
+# re-syncs from Turso, so data persists forever.
+#
+# NOTE: uploaded item images (server/uploads) still live on the ephemeral disk.
+# Admin-uploaded product images will reset on restart unless you also move them
+# to durable storage (e.g. a paid Render disk, or an object store like S3/R2).
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { checkMobileExists, loginUser, apiError } from '../api.js';
+import { loginUser, apiError } from '../api.js';
 
 // Full-page gate: users must log in (returning) or register (new: mobile + name)
 // before they can browse or order products.
@@ -19,17 +19,17 @@ export default function UserLoginScreen() {
     setError('');
     if (!validMobile) { setError('Enter a valid 10-digit mobile number.'); return; }
 
+    if (needName && username.trim().length < 2) {
+      setError('Please enter your name to register.');
+      return;
+    }
+
     setChecking(true);
     try {
-      if (!needName) {
-        const exists = await checkMobileExists(mobile);
-        if (!exists) { setNeedName(true); setChecking(false); return; }
-      }
-      if (needName && username.trim().length < 2) {
-        setError('Please enter your name to register.');
-        setChecking(false);
-        return;
-      }
+      // Single request: /login logs in a returning user, or returns NEW_USER
+      // (handled below) when the mobile is unknown and no name was given yet.
+      // Skipping a separate "exists" pre-check halves the wait for the common
+      // returning-user path — important on a cold-started API.
       const data = await loginUser({ mobile, username: username.trim() });
       login(data); // storefront unlocks
     } catch (err) {
