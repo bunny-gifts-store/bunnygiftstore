@@ -35,6 +35,17 @@ export default function Footer() {
           </svg>
           <span className="fc-linkedin-text">LinkedIn</span>
         </a>
+        <a
+          className="fc-portfolio"
+          href="https://rameshneralla.github.io/portfolio/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View Portfolio"
+          aria-label="View Portfolio"
+        >
+          <span aria-hidden="true">🌐</span>
+          <span className="fc-portfolio-text">Portfolio</span>
+        </a>
       </p>
     </footer>
   );

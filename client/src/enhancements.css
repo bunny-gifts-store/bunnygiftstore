@@ -818,6 +818,17 @@ a:hover > .admin-stat { transform: translateY(-2px); box-shadow: 0 8px 20px rgba
   transform: translateY(-1px); box-shadow: 0 5px 14px rgba(10, 102, 194, 0.55);
   text-decoration: none; color: #fff !important;
 }
+.footer-credit .fc-portfolio {
+  display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+  padding: 0.22rem 0.85rem; border-radius: 50px;
+  background: linear-gradient(135deg, #16a34a, #0d9488); color: #fff !important;
+  text-decoration: none; transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.footer-credit .fc-portfolio .fc-portfolio-text { color: #fff; font-weight: 600; }
+.footer-credit .fc-portfolio:hover {
+  transform: translateY(-1px); box-shadow: 0 5px 14px rgba(16, 163, 74, 0.55);
+  text-decoration: none; color: #fff !important;
+}
 
 /* ---- Mobile-only "Go to Cart" action bar ---- */
 .mobile-cart-bar { display: none; }
