@@ -5,6 +5,7 @@ import {
 } from '../api.js';
 import { displayPrice, resolveImage } from '../utils.js';
 import ProductForm from './ProductForm.jsx';
+import ConfirmDialog from './ConfirmDialog.jsx';
 
 export default function ProductsAdmin() {
   const [products, setProducts] = useState([]);
@@ -14,6 +15,8 @@ export default function ProductsAdmin() {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [editing, setEditing] = useState(undefined); // undefined=closed, null=new, obj=edit
+  const [confirmDel, setConfirmDel] = useState(null); // product pending deletion
+  const [deleting, setDeleting] = useState(false);
 
   // Status filter is driven by the URL (?filter=oos|unavailable) so the
   // dashboard cards can deep-link into a filtered list.
@@ -57,13 +60,18 @@ export default function ProductsAdmin() {
     }
   };
 
-  const remove = async (p) => {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+  const confirmDelete = async () => {
+    if (!confirmDel) return;
+    setDeleting(true);
     try {
-      await adminDeleteProduct(p.id);
-      setProducts((prev) => prev.filter((x) => x.id !== p.id));
+      await adminDeleteProduct(confirmDel.id);
+      setProducts((prev) => prev.filter((x) => x.id !== confirmDel.id));
+      setConfirmDel(null);
     } catch (err) {
       setError(apiError(err));
+      setConfirmDel(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -141,7 +149,7 @@ export default function ProductsAdmin() {
                     </td>
                     <td className="text-nowrap">
                       <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => setEditing(p)}>Edit</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={() => remove(p)}>Delete</button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => setConfirmDel(p)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -162,6 +170,18 @@ export default function ProductsAdmin() {
           onSaved={() => { setEditing(undefined); load(); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmDel}
+        danger
+        icon="🗑️"
+        title="Delete product?"
+        message={<>Are you sure you want to delete <strong>“{confirmDel?.name}”</strong>? This action cannot be undone.</>}
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => { if (!deleting) setConfirmDel(null); }}
+      />
     </>
   );
 }
