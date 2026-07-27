@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { adminCreateProduct, adminUpdateProduct, adminUploadImage, apiError } from '../api.js';
 import { resolveImage } from '../utils.js';
 
@@ -34,6 +34,13 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // In-app camera (take a product photo instantly).
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const captureInputRef = useRef(null); // native-camera fallback (mobile)
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const addSize = () => setSizes((s) => [...s, { width: '', height: '', label: '', price: '' }]);
@@ -54,8 +61,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       })
       .filter((o) => Number.isFinite(o.price) && o.price >= 0 && o.label);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadFile = async (file) => {
     if (!file) return;
     setUploading(true);
     setError('');
@@ -67,6 +73,76 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleUpload = (e) => uploadFile(e.target.files?.[0]);
+
+  // Stop the live camera stream and release the device.
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const closeCamera = () => {
+    stopStream();
+    setCameraOpen(false);
+    setCameraError('');
+  };
+
+  // Open the in-app camera (rear camera on phones). If the browser can't do
+  // in-page capture (unsupported / permission blocked / not a secure context),
+  // fall back to the OS camera via a file input with capture="environment".
+  const openCamera = async () => {
+    setCameraError('');
+    const md = navigator.mediaDevices;
+    if (!md || !md.getUserMedia) {
+      captureInputRef.current?.click();
+      return;
+    }
+    try {
+      const stream = await md.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setCameraOpen(true);
+    } catch {
+      // Permission denied or no camera — use the native camera picker instead.
+      captureInputRef.current?.click();
+    }
+  };
+
+  // Attach the stream once the <video> is mounted.
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play?.().catch(() => {});
+    }
+  }, [cameraOpen]);
+
+  // Always release the camera if the form unmounts.
+  useEffect(() => stopStream, []);
+
+  // Grab the current video frame, turn it into a JPEG file, and upload it.
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) { setCameraError('Camera is still starting — try again.'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) { setCameraError('Could not capture the photo. Please try again.'); return; }
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        closeCamera();
+        uploadFile(file);
+      },
+      'image/jpeg',
+      0.9
+    );
   };
 
   const submit = async (e) => {
@@ -147,8 +223,20 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
 
                   <div className="col-md-8">
                     <label className="form-label">Item Image</label>
-                    <input type="file" accept="image/*" className="form-control" onChange={handleUpload} disabled={uploading} />
-                    <small className="text-muted">{uploading ? 'Uploading…' : 'Upload a product image (PNG or JPG).'}</small>
+                    <div className="d-flex gap-2 align-items-start flex-wrap">
+                      <input type="file" accept="image/*" className="form-control" style={{ flex: '1 1 180px' }}
+                             onChange={handleUpload} disabled={uploading} />
+                      <button type="button" className="btn btn-outline-primary" onClick={openCamera} disabled={uploading}>
+                        📷 Take Photo
+                      </button>
+                    </div>
+                    {/* Native-camera fallback for browsers that can't do in-page capture. */}
+                    <input ref={captureInputRef} type="file" accept="image/*" capture="environment"
+                           className="d-none" onChange={handleUpload} />
+                    <small className="text-muted">
+                      {uploading ? 'Uploading…' : 'Choose a file or take a photo (PNG or JPG).'}
+                    </small>
+                    {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
                   </div>
                   <div className="col-md-4 text-center">
                     {form.image
@@ -232,6 +320,35 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
         </div>
       </div>
       <div className="modal-backdrop fade show"></div>
+
+      {cameraOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Take a product photo"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1080,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', padding: 16, gap: 16,
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 12, background: '#000' }}
+          />
+          {cameraError && <div className="text-warning small">{cameraError}</div>}
+          <div className="d-flex gap-3">
+            <button type="button" className="btn btn-light" onClick={closeCamera}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={capturePhoto} disabled={uploading}>
+              📸 Capture Photo
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
