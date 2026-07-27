@@ -254,15 +254,16 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
 
                   <div className="col-12">
                     <label className="form-label">Item Image</label>
-                    <div className="image-uploader">
+                    <div className="image-uploader-grid">
+                      {/* Left: stacked action buttons */}
                       <div className="image-uploader-controls">
                         <button type="button" className="image-src-btn"
                                 onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
-                          <span className="isb-icon" aria-hidden="true">🖼️</span> From your Gallery
+                          <span className="isb-icon" aria-hidden="true">🖼️</span> Upload from Gallery
                         </button>
                         <button type="button" className="image-src-btn"
                                 onClick={openCamera} disabled={uploading}>
-                          <span className="isb-icon" aria-hidden="true">📷</span> Take Photo
+                          <span className="isb-icon" aria-hidden="true">📷</span> Camera
                         </button>
                         {(fileName || uploading) && (
                           <span className="image-file-name" title={fileName}>
@@ -274,23 +275,26 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                         <input ref={captureInputRef} type="file" accept="image/*" capture="environment" className="d-none" onChange={(e) => handleUpload(e, 'camera')} />
                       </div>
 
-                      {form.image ? (
-                        <div className="image-preview-card">
-                          <img src={resolveImage(form.image)} alt="preview" className="image-preview-img" />
-                          <button type="button" className="image-remove-btn" aria-label="Remove image"
-                                  title="Remove image" onClick={clearImage}>&times;</button>
-                          {showRetake && (
-                            <button type="button" className="image-retake-btn" onClick={openCamera} disabled={uploading}>
-                              <span aria-hidden="true">📷</span> Re-take Photo
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="image-preview-empty">
-                          <span className="ipe-icon" aria-hidden="true">🖼️</span>
-                          <span>No image selected</span>
-                        </div>
-                      )}
+                      {/* Right: image preview */}
+                      <div className="image-uploader-preview">
+                        {form.image ? (
+                          <div className="image-preview-card">
+                            <img src={resolveImage(form.image)} alt="preview" className="image-preview-img" />
+                            <button type="button" className="image-remove-btn" aria-label="Remove image"
+                                    title="Remove image" onClick={clearImage}>&times;</button>
+                            {showRetake && (
+                              <button type="button" className="image-retake-btn" onClick={openCamera} disabled={uploading}>
+                                <span aria-hidden="true">📷</span> Re-take Photo
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="image-preview-empty">
+                            <span className="ipe-icon" aria-hidden="true">🖼️</span>
+                            <span>No image selected</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <small className="text-muted d-block mt-2">
                       Choose from your gallery or take a photo (PNG or JPG).

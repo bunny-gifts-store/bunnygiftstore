@@ -223,27 +223,39 @@ header {
 }
 
 /* ---------- Admin: Item Image uploader ---------- */
-.image-uploader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
+/* Two columns on desktop: stacked action buttons (left) + preview (right).
+   Collapses to a single column (buttons, then preview) on mobile. */
+.image-uploader-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 576px) {
+  .image-uploader-grid { grid-template-columns: 1fr; }
 }
 .image-uploader-controls {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.6rem;
+}
+.image-uploader-preview {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 .image-src-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   border: 2px solid var(--bg-light-purple);
   background: #fff;
   color: var(--bg-accent-color);
   font-weight: 700;
   font-size: 0.95rem;
-  padding: 0.55rem 1.15rem;
+  padding: 0.6rem 1.15rem;
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -273,7 +285,7 @@ header {
 .image-preview-empty {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 16px;
   overflow: hidden;
