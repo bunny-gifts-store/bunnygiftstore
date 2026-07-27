@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { db } from '../db.js';
+import { db, syncReplica } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler, normalizeSizeOptions } from '../helpers.js';
@@ -51,6 +51,7 @@ router.post('/categories', asyncHandler((req, res) => {
   try {
     const info = db.prepare('INSERT INTO categories (name, slug, sortOrder) VALUES (?, ?, ?)')
       .run(name, slugify(name), sortOrder);
+    syncReplica();
     res.status(201).json(db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid));
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Category already exists.' });
@@ -66,6 +67,7 @@ router.put('/categories/:id', asyncHandler((req, res) => {
   const sortOrder = req.body.sortOrder != null ? Number(req.body.sortOrder) : existing.sortOrder;
   db.prepare('UPDATE categories SET name = ?, slug = ?, sortOrder = ? WHERE id = ?')
     .run(name, slugify(name), sortOrder, id);
+  syncReplica();
   res.json(db.prepare('SELECT * FROM categories WHERE id = ?').get(id));
 }));
 
@@ -76,6 +78,7 @@ router.delete('/categories/:id', asyncHandler((req, res) => {
     return res.status(409).json({ error: `Cannot delete: ${count} product(s) use this category. Reassign them first.` });
   }
   db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  syncReplica();
   res.json({ ok: true });
 }));
 
@@ -120,6 +123,7 @@ router.post('/products', asyncHandler((req, res) => {
       INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, outOfStock, unavailable, sortOrder)
       VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @outOfStock, @unavailable, @sortOrder)
     `).run(p);
+    syncReplica();
     res.status(201).json(getProductById(info.lastInsertRowid));
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
@@ -141,6 +145,7 @@ router.put('/products/:id', asyncHandler((req, res) => {
           unavailable=@unavailable, sortOrder=@sortOrder, updatedAt=CURRENT_TIMESTAMP
       WHERE id=@id
     `).run({ ...p, id });
+    syncReplica();
     res.json(getProductById(id));
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
@@ -157,6 +162,7 @@ router.patch('/products/:id/status', asyncHandler((req, res) => {
   const unavailable = req.body.unavailable != null ? (req.body.unavailable ? 1 : 0) : (existing.unavailable ? 1 : 0);
   db.prepare('UPDATE products SET outOfStock = ?, unavailable = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?')
     .run(outOfStock, unavailable, id);
+  syncReplica();
   res.json(getProductById(id));
 }));
 
@@ -165,6 +171,7 @@ router.delete('/products/:id', asyncHandler((req, res) => {
   const existing = db.prepare('SELECT image FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
   db.prepare('DELETE FROM products WHERE id = ?').run(id);
+  syncReplica();
   // Best-effort cleanup of an uploaded image (never touch bundled images/).
   if (existing.image && existing.image.startsWith('uploads/')) {
     const file = path.join(config.uploadsDir, path.basename(existing.image));
@@ -279,6 +286,7 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
 
   const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
   db.prepare(`UPDATE orders SET ${setClause} WHERE id = @id`).run({ ...updates, id });
+  syncReplica();
 
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
@@ -298,6 +306,7 @@ router.patch('/orders/:id/status', asyncHandler((req, res) => {
     return res.status(409).json({ error: 'This order is delivered; its status can no longer be changed.' });
   }
   db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+  syncReplica();
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
 

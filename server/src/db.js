@@ -51,6 +51,25 @@ if (usingTurso) {
   db.pragma('foreign_keys = ON');
 }
 
+// Read-your-writes for the Turso embedded replica.
+//
+// With an embedded replica, WRITES are forwarded to the remote primary but
+// READS are served from the LOCAL replica file, which only converges on the
+// remote when db.sync() is called (or the background syncInterval fires). That
+// means a freshly inserted row (a new product, a just-registered user, a placed
+// order) is NOT visible to the very next read until a sync happens — which is
+// why seeded products didn't appear and admin-added products wouldn't show to
+// customers. Call this right AFTER any write so the local replica immediately
+// reflects it. No-op (and cost-free) when running on a plain local SQLite file.
+export function syncReplica() {
+  if (!usingTurso) return;
+  try {
+    db.sync();
+  } catch (err) {
+    console.error('[turso] Replica sync failed:', err.message);
+  }
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
-import { db } from '../db.js';
+import { db, syncReplica } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { asyncHandler } from '../helpers.js';
@@ -74,6 +74,7 @@ router.post('/', asyncHandler((req, res) => {
     Number(totalAmount || 0), Number(totalItems || 0),
     items ? JSON.stringify(items) : null
   );
+  syncReplica();
 
   res.json({ ok: true, id: info.lastInsertRowid });
 }));
@@ -115,6 +116,7 @@ router.post('/:id/cancel', requireAuth('user'), asyncHandler((req, res) => {
     SET status = 'cancelled', cancellationReason = ?, cancelledAt = ?, cancelledBy = 'user'
     WHERE id = ?
   `).run(reason, new Date().toISOString(), id);
+  syncReplica();
 
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));

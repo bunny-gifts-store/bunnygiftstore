@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db, usingTurso } from './db.js';
+import { db, usingTurso, syncReplica } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
@@ -103,6 +103,11 @@ export function seedDatabase({ force = false } = {}) {
 
   const runSeed = () => {
     CATEGORIES.forEach((name, i) => insertCategory.run(name, slugify(name), i));
+    // On a Turso replica the category rows were just written to the remote
+    // primary; pull them into the local replica so the getCategoryId reads below
+    // resolve to real ids instead of null (which would leave products
+    // uncategorised on the very first boot).
+    syncReplica();
 
     PRODUCTS.forEach((p, i) => {
       const categoryId = getCategoryId.get(p.category)?.id ?? null;
@@ -145,6 +150,10 @@ export function seedDatabase({ force = false } = {}) {
   // the same statements directly when syncing to Turso.
   if (usingTurso) {
     runSeed();
+    // Pull the freshly-seeded products into the local replica so /api/products
+    // (which reads locally) returns them immediately, not only after the next
+    // background sync.
+    syncReplica();
   } else {
     db.transaction(runSeed)();
   }

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db } from '../db.js';
+import { db, syncReplica } from '../db.js';
 import { signUserToken, signAdminToken, requireAuth } from '../auth.js';
 import { asyncHandler } from '../helpers.js';
 
@@ -29,6 +29,7 @@ router.post('/login', asyncHandler((req, res) => {
       return res.status(400).json({ error: 'Please enter a valid name.' });
     }
     const info = db.prepare('INSERT INTO users (mobile, username) VALUES (?, ?)').run(mobile, username);
+    syncReplica();
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
 
@@ -80,6 +81,7 @@ router.post('/admin/change-password', requireAuth('admin'), asyncHandler((req, r
   }
   const hash = bcrypt.hashSync(newPassword, 10);
   db.prepare('UPDATE admins SET passwordHash = ? WHERE id = ?').run(hash, admin.id);
+  syncReplica();
   res.json({ ok: true });
 }));
 
