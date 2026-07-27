@@ -227,18 +227,19 @@ header {
    Collapses to a single column (buttons, then preview) on mobile. */
 .image-uploader-grid {
   display: grid;
-  grid-template-columns: minmax(160px, 200px) auto 1fr;
+  grid-template-columns: minmax(170px, 210px) auto 1fr;
   gap: 1.25rem;
-  align-items: start;
+  align-items: stretch;
 }
 @media (max-width: 576px) {
-  .image-uploader-grid { grid-template-columns: 1fr; }
+  .image-uploader-grid { grid-template-columns: 1fr; align-items: stretch; }
 }
 .image-uploader-controls {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.6rem;
+  justify-content: center; /* centre the button pair against the preview height */
+  gap: 0.7rem;
 }
 .image-uploader-preview {
   width: 100%;
@@ -251,14 +252,18 @@ header {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center; /* centre the button pair against the preview height */
   gap: 0.7rem;
 }
 .iua-btn {
-  height: 48px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: 50px; /* slim pill to match the gallery/camera buttons */
 }
 .iua-create { width: 100%; }
 .iua-cancel { width: 55%; min-width: 110px; }
@@ -270,25 +275,27 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  border: 2px solid var(--bg-light-purple);
+  gap: 0.45rem;
+  height: 42px;
+  border: 1.5px solid var(--bg-light-purple);
   background: #fff;
   color: var(--bg-accent-color);
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding: 0.6rem 1.15rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0 0.9rem;
   border-radius: 50px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  transition: all 0.18s ease;
 }
 .image-src-btn:hover:not(:disabled) {
   background: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color));
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 4px 14px rgba(199, 125, 255, 0.35);
+  box-shadow: 0 3px 10px rgba(199, 125, 255, 0.3);
 }
 .image-src-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.isb-icon { font-size: 1.05rem; line-height: 1; }
+.isb-icon { font-size: 1rem; line-height: 1; }
 .image-file-name {
   max-width: 220px;
   overflow: hidden;
