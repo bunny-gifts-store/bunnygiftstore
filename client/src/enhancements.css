@@ -203,6 +203,24 @@ header {
   color: #fff;
   border-color: transparent;
 }
+/* Item count shown beside the category name inside the same chip. */
+.category-chip-count {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0.05rem 0.4rem;
+  margin-left: 0.15rem;
+  border-radius: 50px;
+  background: rgba(199, 125, 255, 0.16);
+  color: var(--bg-accent-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+.category-chip.active .category-chip-count {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
 
 /* ---------- Product Details modal: centered + refined ----------
    Scoped to #productModal so the base theme (style.css) stays untouched.

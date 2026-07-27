@@ -38,7 +38,7 @@ export default function CategorizedCatalog({ title, subtitle, lockCategory = nul
         {!lockCategory && effectiveCategories.length > 0 && (
           <div className="category-filter" role="tablist" aria-label="Product categories">
             <button className={`category-chip${active === 'all' ? ' active' : ''}`} onClick={() => setActive('all')}>
-              All
+              All <span className="category-chip-count">{products.length}</span>
             </button>
             {effectiveCategories.map((c) => (
               <button
@@ -46,7 +46,7 @@ export default function CategorizedCatalog({ title, subtitle, lockCategory = nul
                 className={`category-chip${active === c.slug ? ' active' : ''}`}
                 onClick={() => setActive(c.slug)}
               >
-                {c.name}
+                {c.name} <span className="category-chip-count">{c.productCount}</span>
               </button>
             ))}
           </div>
