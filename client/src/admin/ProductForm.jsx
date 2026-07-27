@@ -295,10 +295,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                           </div>
                         )}
                       </div>
-                    </div>
-                    <small className="text-muted d-block mt-2">
-                      Choose from your gallery or take a photo (PNG or JPG).
-                    </small>
+                    </div>                   
                     {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
                   </div>
 
