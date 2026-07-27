@@ -5,13 +5,15 @@ import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
 import { persistence } from './db.js';
-import { seedDatabase } from './seed.js';
 import authRoutes from './routes/auth.routes.js';
 import catalogRoutes from './routes/catalog.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 
-seedDatabase();
+// NOTE: seeding is intentionally NOT run here. It is kicked off by server.js
+// AFTER the HTTP port is open, because the first-boot seed writes ~100 rows to
+// the remote Turso primary one round-trip at a time — running it before
+// app.listen() would delay the port opening and fail Render's health check.
 
 const app = express();
 app.set('trust proxy', 1);
