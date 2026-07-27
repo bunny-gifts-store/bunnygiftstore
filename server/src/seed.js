@@ -74,6 +74,13 @@ const FRAME_SIZE_OPTIONS = [
 const slugify = (s) =>
   s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+// Last seed outcome, surfaced on /api/health so a deploy's result (and any
+// failure cause) is verifiable with a simple request — no log access needed.
+export const seedStatus = {
+  ran: false, skipped: false, products: null, categories: null,
+  failedInserts: 0, firstError: null,
+};
+
 export function seedDatabase({ force = false } = {}) {
   // Always ensure a default admin exists.
   const adminCount = db.prepare('SELECT COUNT(*) AS c FROM admins').get().c;
@@ -89,6 +96,9 @@ export function seedDatabase({ force = false } = {}) {
   const productCount = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   if (productCount > 0 && !force) {
     console.log('[seed] Products already present; skipping product seed.');
+    seedStatus.skipped = true;
+    seedStatus.products = productCount;
+    seedStatus.categories = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
     return;
   }
 
@@ -96,20 +106,30 @@ export function seedDatabase({ force = false } = {}) {
     'INSERT OR IGNORE INTO categories (name, slug, sortOrder) VALUES (?, ?, ?)'
   );
   const getCategoryId = db.prepare('SELECT id FROM categories WHERE name = ?');
+  // POSITIONAL parameters (?), not named (@name): libSQL's remote/hrana protocol
+  // (Turso) does not bind @-named parameters, so a named INSERT lands NULLs and
+  // fails the NOT NULL columns — which is exactly why products never persisted
+  // while the positional category/user/order inserts did. Positional binding
+  // works everywhere.
   const insertProduct = db.prepare(`
     INSERT OR IGNORE INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, sortOrder)
-    VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @sortOrder)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   // Insert one product, logging (but not aborting on) any failure so a single
   // bad row can never wipe out the whole seed — and so the exact cause of a
   // failure is visible in the deploy logs instead of a silent empty catalogue.
   let failed = 0;
+  let firstError = null;
   const seedProduct = (row) => {
     try {
-      insertProduct.run(row);
+      insertProduct.run(
+        row.code, row.name, row.description, row.price, row.priceLabel,
+        row.categoryId, row.image, row.sizeOptions, row.sortOrder
+      );
     } catch (e) {
       failed += 1;
+      if (!firstError) firstError = `${row.code}: ${e.message}`;
       if (failed <= 5) console.error(`[seed] product ${row.code} failed:`, e.message);
     }
   };
@@ -163,6 +183,12 @@ export function seedDatabase({ force = false } = {}) {
   if (failed) console.error(`[seed] ${failed} product(s) failed to insert.`);
   const total = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   console.log(`[seed] Seeded ${CATEGORIES.length} categories and ${total} products.`);
+
+  seedStatus.ran = true;
+  seedStatus.products = total;
+  seedStatus.categories = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
+  seedStatus.failedInserts = failed;
+  seedStatus.firstError = firstError;
 }
 
 // Allow running directly: `node src/seed.js` or `node src/seed.js --force`

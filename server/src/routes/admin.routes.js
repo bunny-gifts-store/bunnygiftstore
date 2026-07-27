@@ -119,11 +119,12 @@ router.post('/products', asyncHandler((req, res) => {
   // A price isn't required when the product carries per-size pricing (frames).
   if (p.price == null && !p.priceLabel && !p.sizeOptions) return res.status(400).json({ error: 'Enter a price.' });
   try {
+    // Positional params (?) — libSQL's Turso remote protocol doesn't bind
+    // @-named params, which silently NULLs the columns and fails the insert.
     const info = db.prepare(`
       INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, outOfStock, unavailable, sortOrder)
-      VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @outOfStock, @unavailable, @sortOrder)
-    `).run(p);
-    syncReplica();
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder);
     res.status(201).json(getProductById(info.lastInsertRowid));
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
@@ -140,12 +141,11 @@ router.put('/products/:id', asyncHandler((req, res) => {
   try {
     db.prepare(`
       UPDATE products
-      SET code=@code, name=@name, description=@description, price=@price, priceLabel=@priceLabel,
-          categoryId=@categoryId, image=@image, sizeOptions=@sizeOptions, outOfStock=@outOfStock,
-          unavailable=@unavailable, sortOrder=@sortOrder, updatedAt=CURRENT_TIMESTAMP
-      WHERE id=@id
-    `).run({ ...p, id });
-    syncReplica();
+      SET code=?, name=?, description=?, price=?, priceLabel=?,
+          categoryId=?, image=?, sizeOptions=?, outOfStock=?,
+          unavailable=?, sortOrder=?, updatedAt=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder, id);
     res.json(getProductById(id));
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
@@ -284,9 +284,9 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   const keys = Object.keys(updates);
   if (keys.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
 
-  const setClause = keys.map((k) => `${k} = @${k}`).join(', ');
-  db.prepare(`UPDATE orders SET ${setClause} WHERE id = @id`).run({ ...updates, id });
-  syncReplica();
+  // Positional params (?) — Turso remote doesn't bind @-named params.
+  const setClause = keys.map((k) => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE orders SET ${setClause} WHERE id = ?`).run(...keys.map((k) => updates[k]), id);
 
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));

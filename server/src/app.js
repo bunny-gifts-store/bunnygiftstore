@@ -5,6 +5,7 @@ import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
 import { persistence } from './db.js';
+import { seedStatus } from './seed.js';
 import authRoutes from './routes/auth.routes.js';
 import catalogRoutes from './routes/catalog.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
@@ -31,6 +32,9 @@ app.get('/api/health', (_req, res) => res.json({
   message: 'Bunny Gift Store API is live',
   // Surface persistence so a misconfigured (data-losing) deploy is visible.
   persistence: { mode: persistence.mode, durable: persistence.durable },
+  // Surface the last seed outcome (counts + first failure) so the state of the
+  // catalogue — and any seeding error — is verifiable without server logs.
+  seed: seedStatus,
 }));
 
 app.use('/api/auth', authLimiter, authRoutes);
