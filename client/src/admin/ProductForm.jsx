@@ -257,11 +257,11 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                     <div className="image-uploader-grid">
                       {/* Left: stacked action buttons */}
                       <div className="image-uploader-controls">
-                        <button type="button" className="image-src-btn"
+                        <button type="button" className="image-src-btn iua-create"
                                 onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
                           <span className="isb-icon" aria-hidden="true">🖼️</span> Upload from Gallery
                         </button>
-                        <button type="button" className="image-src-btn"
+                        <button type="button" className="image-src-btn iua-cancel"
                                 onClick={openCamera} disabled={uploading}>
                           <span className="isb-icon" aria-hidden="true">📷</span> Camera
                         </button>

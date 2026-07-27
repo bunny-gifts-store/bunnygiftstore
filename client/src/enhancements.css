@@ -237,7 +237,7 @@ header {
 .image-uploader-controls {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center; /* Camera (narrow) sits centred under Upload from Gallery */
   justify-content: center; /* centre the button pair against the preview height */
   gap: 0.7rem;
 }
@@ -281,8 +281,8 @@ header {
   background: #fff;
   color: var(--bg-accent-color);
   font-weight: 600;
-  font-size: 0.88rem;
-  padding: 0 0.9rem;
+  font-size: 0.85rem;
+  padding: 0 0.75rem;
   border-radius: 50px;
   cursor: pointer;
   white-space: nowrap;
