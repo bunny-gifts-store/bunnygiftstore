@@ -295,7 +295,20 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                           </div>
                         )}
                       </div>
-                    </div>                   
+
+                      {/* Far right: form actions (moved out of the footer to use
+                          the empty space beside the preview). */}
+                      <div className="image-uploader-actions">
+                        <button type="submit" className="btn btn-primary iua-btn iua-create"
+                                disabled={saving || uploading}>
+                          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Product'}
+                        </button>
+                        <button type="button" className="btn btn-secondary iua-btn iua-cancel"
+                                onClick={onClose}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                     {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
                   </div>
 
@@ -364,12 +377,6 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                   )}
 
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
-                  {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Product'}
-                </button>
               </div>
             </form>
           </div>
