@@ -303,7 +303,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                                 disabled={saving || uploading}>
                           {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Product'}
                         </button>
-                        <button type="button" className="btn btn-secondary iua-btn iua-cancel"
+                        <button type="button" className="image-src-btn iua-cancel"
                                 onClick={onClose}>
                           Cancel
                         </button>
