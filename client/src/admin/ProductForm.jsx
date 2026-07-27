@@ -37,11 +37,22 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
   // In-app camera (take a product photo instantly).
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [fileName, setFileName] = useState('');
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const galleryInputRef = useRef(null); // "From your Gallery" picker
   const captureInputRef = useRef(null); // native-camera fallback (mobile)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Clear the selected image everywhere: the stored path, the shown file name,
+  // and the underlying file inputs (so the same file can be re-picked later).
+  const clearImage = () => {
+    set('image', '');
+    setFileName('');
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+    if (captureInputRef.current) captureInputRef.current.value = '';
+  };
 
   const addSize = () => setSizes((s) => [...s, { width: '', height: '', label: '', price: '' }]);
   const updateSize = (i, k, v) =>
@@ -75,7 +86,12 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     }
   };
 
-  const handleUpload = (e) => uploadFile(e.target.files?.[0]);
+  const handleUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    uploadFile(file);
+  };
 
   // Stop the live camera stream and release the device.
   const stopStream = () => {
@@ -138,6 +154,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
         if (!blob) { setCameraError('Could not capture the photo. Please try again.'); return; }
         const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
         closeCamera();
+        setFileName('Camera photo');
         uploadFile(file);
       },
       'image/jpeg',
@@ -221,60 +238,48 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                               onChange={(e) => set('description', e.target.value)} />
                   </div>
 
-                  <div className="col-md-8">
+                  <div className="col-12">
                     <label className="form-label">Item Image</label>
-                    <div className="d-flex gap-2 align-items-start flex-wrap">
-                      <input type="file" accept="image/*" className="form-control" style={{ flex: '1 1 180px' }}
-                             onChange={handleUpload} disabled={uploading} />
-                      <button type="button" className="btn btn-outline-primary" onClick={openCamera} disabled={uploading}>
-                        📷 Take Photo
-                      </button>
+                    <div className="image-uploader">
+                      <div className="image-uploader-controls">
+                        <button type="button" className="image-src-btn"
+                                onClick={() => galleryInputRef.current?.click()} disabled={uploading}>
+                          <span className="isb-icon" aria-hidden="true">🖼️</span> From your Gallery
+                        </button>
+                        <button type="button" className="image-src-btn"
+                                onClick={openCamera} disabled={uploading}>
+                          <span className="isb-icon" aria-hidden="true">📷</span> Take Photo
+                        </button>
+                        {(fileName || uploading) && (
+                          <span className="image-file-name" title={fileName}>
+                            {uploading ? 'Uploading…' : fileName}
+                          </span>
+                        )}
+                        {/* Hidden inputs: gallery picker + native-camera fallback. */}
+                        <input ref={galleryInputRef} type="file" accept="image/*" className="d-none" onChange={handleUpload} />
+                        <input ref={captureInputRef} type="file" accept="image/*" capture="environment" className="d-none" onChange={handleUpload} />
+                      </div>
+
+                      {form.image ? (
+                        <div className="image-preview-card">
+                          <img src={resolveImage(form.image)} alt="preview" className="image-preview-img" />
+                          <button type="button" className="image-remove-btn" aria-label="Remove image"
+                                  title="Remove image" onClick={clearImage}>&times;</button>
+                          <button type="button" className="image-retake-btn" onClick={openCamera} disabled={uploading}>
+                            <span aria-hidden="true">📷</span> Re-take Photo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="image-preview-empty">
+                          <span className="ipe-icon" aria-hidden="true">🖼️</span>
+                          <span>No image selected</span>
+                        </div>
+                      )}
                     </div>
-                    {/* Native-camera fallback for browsers that can't do in-page capture. */}
-                    <input ref={captureInputRef} type="file" accept="image/*" capture="environment"
-                           className="d-none" onChange={handleUpload} />
-                    <small className="text-muted">
-                      {uploading ? 'Uploading…' : 'Choose a file or take a photo (PNG or JPG).'}
+                    <small className="text-muted d-block mt-2">
+                      Choose from your gallery or take a photo (PNG or JPG).
                     </small>
                     {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
-                  </div>
-                  <div className="col-md-4 text-center">
-                    {form.image ? (
-                      <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0 }}>
-                        <img src={resolveImage(form.image)} alt="preview" className="rounded"
-                             style={{ display: 'block', maxHeight: 140, maxWidth: '100%', objectFit: 'contain' }} />
-                        <button
-                          type="button"
-                          aria-label="Remove image"
-                          title="Remove image"
-                          onClick={() => set('image', '')}
-                          style={{
-                            position: 'absolute', top: 6, right: 6,
-                            width: 26, height: 26, borderRadius: '50%', padding: 0,
-                            border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff',
-                            fontSize: 18, fontWeight: 700, lineHeight: 1, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          &times;
-                        </button>
-                        <button
-                          type="button"
-                          onClick={openCamera}
-                          disabled={uploading}
-                          style={{
-                            position: 'absolute', left: 0, right: 0, bottom: 0,
-                            border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff',
-                            fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: '6px 0',
-                            borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
-                          }}
-                        >
-                          📷 Re-take
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-muted small pt-4">No image</div>
-                    )}
                   </div>
 
                   {/* Per-size pricing — used by photo frames and any product sold

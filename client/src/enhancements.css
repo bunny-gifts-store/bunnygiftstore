@@ -222,6 +222,129 @@ header {
   color: #fff;
 }
 
+/* ---------- Admin: Item Image uploader ---------- */
+.image-uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.image-uploader-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.image-src-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid var(--bg-light-purple);
+  background: #fff;
+  color: var(--bg-accent-color);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.image-src-btn:hover:not(:disabled) {
+  background: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(199, 125, 255, 0.35);
+}
+.image-src-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.isb-icon { font-size: 1.05rem; line-height: 1; }
+.image-file-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--bg-accent-color);
+  background: #f3eefc;
+  padding: 0.32rem 0.75rem;
+  border-radius: 50px;
+}
+
+.image-preview-card,
+.image-preview-empty {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.image-preview-card {
+  background: #f4f4f7;
+  box-shadow: 0 8px 24px rgba(60, 40, 90, 0.15);
+  border: 1px solid #ececf2;
+}
+.image-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.image-remove-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.image-remove-btn:hover { background: rgba(0, 0, 0, 0.9); transform: scale(1.08); }
+.image-retake-btn {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.7rem 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  letter-spacing: 0.3px;
+  transition: background 0.2s ease;
+}
+.image-retake-btn:hover:not(:disabled) { background: rgba(0, 0, 0, 0.88); }
+.image-retake-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.image-preview-empty {
+  border: 2px dashed var(--bg-light-purple);
+  background: #faf7ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #9a90ad;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.ipe-icon { font-size: 2rem; opacity: 0.55; }
+
 /* ---------- Product Details modal: centered + refined ----------
    Scoped to #productModal so the base theme (style.css) stays untouched.
    Only the body scrolls (not the whole card), so the slim scrollbar never
