@@ -239,10 +239,37 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                     {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
                   </div>
                   <div className="col-md-4 text-center">
-                    {form.image
-                      ? <img src={resolveImage(form.image)} alt="preview" className="img-fluid rounded"
-                             style={{ maxHeight: 120, objectFit: 'contain' }} />
-                      : <div className="text-muted small pt-4">No image</div>}
+                    {form.image ? (
+                      <>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <img src={resolveImage(form.image)} alt="preview" className="img-fluid rounded"
+                               style={{ maxHeight: 120, objectFit: 'contain' }} />
+                          <button
+                            type="button"
+                            aria-label="Remove image"
+                            title="Remove image"
+                            onClick={() => set('image', '')}
+                            style={{
+                              position: 'absolute', top: 4, right: 4,
+                              width: 24, height: 24, borderRadius: '50%',
+                              border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff',
+                              fontSize: 16, lineHeight: 1, cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            &times;
+                          </button>
+                        </div>
+                        <div className="mt-2">
+                          <button type="button" className="btn btn-sm btn-outline-secondary"
+                                  onClick={openCamera} disabled={uploading}>
+                            📷 Re-take
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-muted small pt-4">No image</div>
+                    )}
                   </div>
 
                   {/* Per-size pricing — used by photo frames and any product sold
