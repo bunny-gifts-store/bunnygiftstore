@@ -53,9 +53,12 @@ export const fetchCategories = () => api.get('/categories').then((r) => r.data);
 export const fetchProducts = (category) =>
   api.get('/products', { params: category ? { category } : {} }).then((r) => r.data);
 
-// ---- Customer auth ----
+// ---- Customer auth (password based) ----
 export const checkMobileExists = (mobile) =>
   api.get('/auth/exists', { params: { mobile } }).then((r) => r.data.exists);
+// Register a first-time user: { mobile, username, password }.
+export const registerUser = (payload) => api.post('/auth/register', payload).then((r) => r.data);
+// Log in a returning user: { identifier (mobile or username), password }.
 export const loginUser = (payload) => api.post('/auth/login', payload).then((r) => r.data);
 
 // ---- Orders ----

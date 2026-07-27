@@ -7,34 +7,86 @@ import { asyncHandler } from '../helpers.js';
 const router = Router();
 
 const normalizeMobile = (m) => String(m || '').replace(/[^\d]/g, '');
+const MIN_PASSWORD = 6;
 
-// ---- Customer auth (no OTP): identify by mobile, username only for first-time ----
-// POST /api/auth/login  { mobile, username? }
-router.post('/login', asyncHandler((req, res) => {
+const publicUser = (u) => ({ id: u.id, mobile: u.mobile, username: u.username });
+
+// ---- Customer auth (password based) ----
+// First-time users REGISTER with mobile + name + password. Afterwards they LOG
+// IN with (mobile OR username) + password. A password is always required.
+
+// POST /api/auth/register  { mobile, username, password }
+router.post('/register', asyncHandler((req, res) => {
   const mobile = normalizeMobile(req.body.mobile);
   const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
 
   if (!/^\d{10}$/.test(mobile)) {
     return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
   }
+  if (username.length < 2) {
+    return res.status(400).json({ error: 'Please enter your name (at least 2 characters).' });
+  }
+  if (password.length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD} characters.` });
+  }
 
-  let user = db.prepare('SELECT * FROM users WHERE mobile = ?').get(mobile);
+  // Usernames must be unique so they can be used to log in. Allow the same name
+  // only if it already belongs to this same mobile (a legacy account being set up).
+  const nameOwner = db.prepare('SELECT id, mobile FROM users WHERE username = ? COLLATE NOCASE').get(username);
+  if (nameOwner && nameOwner.mobile !== mobile) {
+    return res.status(409).json({ error: 'This name is already taken. Please choose another.' });
+  }
 
-  if (!user) {
-    // First-time user: username is required.
-    if (!username) {
-      return res.status(409).json({ error: 'NEW_USER', message: 'Please enter your name to register.' });
+  const passwordHash = bcrypt.hashSync(password, 10);
+  const existing = db.prepare('SELECT * FROM users WHERE mobile = ?').get(mobile);
+  let user;
+  if (existing) {
+    // A password already set means the account exists — send them to login.
+    if (existing.passwordHash) {
+      return res.status(409).json({ error: 'An account with this mobile number already exists. Please log in.' });
     }
-    if (username.length < 2) {
-      return res.status(400).json({ error: 'Please enter a valid name.' });
-    }
-    const info = db.prepare('INSERT INTO users (mobile, username) VALUES (?, ?)').run(mobile, username);
+    // Legacy passwordless account: claim it by setting the name + password.
+    db.prepare('UPDATE users SET username = ?, passwordHash = ? WHERE id = ?')
+      .run(username, passwordHash, existing.id);
+    syncReplica();
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+  } else {
+    const info = db.prepare('INSERT INTO users (mobile, username, passwordHash) VALUES (?, ?, ?)')
+      .run(mobile, username, passwordHash);
     syncReplica();
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
 
-  const token = signUserToken(user);
-  res.json({ token, user: { id: user.id, mobile: user.mobile, username: user.username } });
+  res.json({ token: signUserToken(user), user: publicUser(user) });
+}));
+
+// POST /api/auth/login  { identifier, password }  -- identifier = mobile OR username
+router.post('/login', asyncHandler((req, res) => {
+  const identifier = String(req.body.identifier ?? req.body.mobile ?? '').trim();
+  const password = String(req.body.password || '');
+
+  if (!identifier || !password) {
+    return res.status(400).json({ error: 'Enter your mobile number / username and password.' });
+  }
+
+  const asMobile = normalizeMobile(identifier);
+  const user = db.prepare(
+    'SELECT * FROM users WHERE mobile = ? OR username = ? COLLATE NOCASE'
+  ).get(asMobile, identifier);
+
+  if (!user) {
+    return res.status(401).json({ error: 'No account found. Please check your details or create an account.' });
+  }
+  if (!user.passwordHash) {
+    // Legacy account with no password yet — guide them to set one via register.
+    return res.status(409).json({ error: 'NO_PASSWORD', message: 'This account has no password yet. Please use “Create account” to set one.' });
+  }
+  if (!bcrypt.compareSync(password, user.passwordHash)) {
+    return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+  }
+
+  res.json({ token: signUserToken(user), user: publicUser(user) });
 }));
 
 // GET /api/auth/me
@@ -44,12 +96,12 @@ router.get('/me', requireAuth('user'), asyncHandler((req, res) => {
   res.json({ user });
 }));
 
-// GET /api/auth/exists?mobile=  -> tells the UI whether to ask for a username
+// GET /api/auth/exists?mobile=  -> whether a mobile is already registered (signup UX)
 router.get('/exists', asyncHandler((req, res) => {
   const mobile = normalizeMobile(req.query.mobile);
   if (!/^\d{10}$/.test(mobile)) return res.json({ exists: false });
-  const user = db.prepare('SELECT id FROM users WHERE mobile = ?').get(mobile);
-  res.json({ exists: !!user });
+  const user = db.prepare('SELECT passwordHash FROM users WHERE mobile = ?').get(mobile);
+  res.json({ exists: !!(user && user.passwordHash) });
 }));
 
 // ---- Admin auth ----

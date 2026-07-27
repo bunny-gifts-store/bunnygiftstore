@@ -54,10 +54,11 @@ export function syncReplica() { /* no-op: connection is already strongly consist
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    mobile    TEXT NOT NULL UNIQUE,
-    username  TEXT NOT NULL,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    mobile       TEXT NOT NULL UNIQUE,
+    username     TEXT NOT NULL,
+    passwordHash TEXT,
+    createdAt    TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS admins (
