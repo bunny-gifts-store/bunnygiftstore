@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { db, syncReplica } from '../db.js';
-import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler, normalizeSizeOptions } from '../helpers.js';
 import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus, isValidUtr, UTR_HELP } from '../orderStatus.js';
+import { saveImage, deleteImage } from '../storage.js';
 import { serializeOrder } from './orders.routes.js';
 
 const router = Router();
@@ -16,16 +14,10 @@ const slugify = (s) =>
   String(s).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 // ---- Image upload ----
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, config.uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
-    const base = `item-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, base + ext);
-  },
-});
+// Keep the file in memory so storage.js can send it to durable storage
+// (Cloudinary) when configured, or write it to the local uploads folder in dev.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
     if (/^image\/(png|jpe?g|webp|gif|avif)$/.test(file.mimetype)) cb(null, true);
@@ -34,9 +26,10 @@ const upload = multer({
 });
 
 // POST /api/admin/upload  (multipart, field: "image") -> { path }
-router.post('/upload', upload.single('image'), asyncHandler((req, res) => {
+router.post('/upload', upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
-  res.json({ path: `uploads/${req.file.filename}` });
+  const path = await saveImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+  res.json({ path });
 }));
 
 // ---- Categories ----
@@ -172,10 +165,10 @@ router.delete('/products/:id', asyncHandler((req, res) => {
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
   db.prepare('DELETE FROM products WHERE id = ?').run(id);
   syncReplica();
-  // Best-effort cleanup of an uploaded image (never touch bundled images/).
-  if (existing.image && existing.image.startsWith('uploads/')) {
-    const file = path.join(config.uploadsDir, path.basename(existing.image));
-    fs.rm(file, () => {});
+  // Best-effort cleanup of an admin-uploaded image (Cloudinary or local uploads).
+  // Never touches the bundled images/ that ship with the app.
+  if (existing.image && !existing.image.startsWith('images/')) {
+    deleteImage(existing.image);
   }
   res.json({ ok: true });
 }));

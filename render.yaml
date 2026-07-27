@@ -30,6 +30,12 @@ services:
         sync: false                # paste your Turso DB URL (libsql://...) in the Render UI
       - key: TURSO_AUTH_TOKEN
         sync: false                # paste your Turso auth token in the Render UI
+      # DURABLE PRODUCT IMAGES via Cloudinary (free) — without this, admin-uploaded
+      # / camera-captured images live on the ephemeral disk and vanish on restart.
+      # One value: cloudinary://<api_key>:<api_secret>@<cloud_name>  (Cloudinary
+      # dashboard -> Product Environment Credentials / API Environment variable).
+      - key: CLOUDINARY_URL
+        sync: false                # paste your Cloudinary URL in the Render UI
 
 # ---------------------------------------------------------------------------
 # DATA PERSISTENCE (do this before taking real orders):
