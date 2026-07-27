@@ -180,6 +180,14 @@ if (!usingTurso && isProdLike) {
   }
 }
 
+// The original users table (passwordless version) lacks passwordHash — the
+// CREATE above only runs for a brand-new table, so add the column defensively
+// on existing databases (e.g. an already-provisioned Turso primary).
+const userCols = db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name);
+if (!userCols.includes('passwordHash')) {
+  db.exec(`ALTER TABLE users ADD COLUMN passwordHash TEXT`);
+}
+
 // The original orders table (from the previous version) may lack the newer
 // columns. Add them defensively so existing databases keep working.
 const orderCols = db.prepare(`PRAGMA table_info(orders)`).all().map((c) => c.name);
