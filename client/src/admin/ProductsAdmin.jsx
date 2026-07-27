@@ -17,6 +17,7 @@ export default function ProductsAdmin() {
   const [editing, setEditing] = useState(undefined); // undefined=closed, null=new, obj=edit
   const [confirmDel, setConfirmDel] = useState(null); // product pending deletion
   const [deleting, setDeleting] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   // Status filter is driven by the URL (?filter=oos|unavailable) so the
   // dashboard cards can deep-link into a filtered list.
@@ -66,11 +67,13 @@ export default function ProductsAdmin() {
     try {
       await adminDeleteProduct(confirmDel.id);
       setProducts((prev) => prev.filter((x) => x.id !== confirmDel.id));
-      setConfirmDel(null);
+      setDeleting(false);
+      // Show a success message in the same popup, then auto-dismiss after 2s.
+      setDeleteSuccess(true);
+      setTimeout(() => { setDeleteSuccess(false); setConfirmDel(null); }, 2000);
     } catch (err) {
       setError(apiError(err));
       setConfirmDel(null);
-    } finally {
       setDeleting(false);
     }
   };
@@ -179,8 +182,9 @@ export default function ProductsAdmin() {
         message={<>Are you sure you want to delete <strong>“{confirmDel?.name}”</strong>? This action cannot be undone.</>}
         confirmLabel="Delete"
         busy={deleting}
+        successMessage={deleteSuccess ? 'Product deleted successfully' : ''}
         onConfirm={confirmDelete}
-        onCancel={() => { if (!deleting) setConfirmDel(null); }}
+        onCancel={() => { if (!deleting && !deleteSuccess) setConfirmDel(null); }}
       />
     </>
   );

@@ -424,6 +424,7 @@ header {
   background: rgba(199, 125, 255, 0.14);
 }
 .confirm-icon.is-danger { background: #fdecec; }
+.confirm-icon.is-success { background: #e6f7ee; color: #1f9d57; }
 .confirm-title {
   font-weight: 800;
   font-size: 1.2rem;
