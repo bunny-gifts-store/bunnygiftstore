@@ -240,33 +240,38 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                   </div>
                   <div className="col-md-4 text-center">
                     {form.image ? (
-                      <>
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
-                          <img src={resolveImage(form.image)} alt="preview" className="img-fluid rounded"
-                               style={{ maxHeight: 120, objectFit: 'contain' }} />
-                          <button
-                            type="button"
-                            aria-label="Remove image"
-                            title="Remove image"
-                            onClick={() => set('image', '')}
-                            style={{
-                              position: 'absolute', top: 4, right: 4,
-                              width: 24, height: 24, borderRadius: '50%',
-                              border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff',
-                              fontSize: 16, lineHeight: 1, cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                          >
-                            &times;
-                          </button>
-                        </div>
-                        <div className="mt-2">
-                          <button type="button" className="btn btn-sm btn-outline-secondary"
-                                  onClick={openCamera} disabled={uploading}>
-                            📷 Re-take
-                          </button>
-                        </div>
-                      </>
+                      <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0 }}>
+                        <img src={resolveImage(form.image)} alt="preview" className="rounded"
+                             style={{ display: 'block', maxHeight: 140, maxWidth: '100%', objectFit: 'contain' }} />
+                        <button
+                          type="button"
+                          aria-label="Remove image"
+                          title="Remove image"
+                          onClick={() => set('image', '')}
+                          style={{
+                            position: 'absolute', top: 6, right: 6,
+                            width: 26, height: 26, borderRadius: '50%', padding: 0,
+                            border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff',
+                            fontSize: 18, fontWeight: 700, lineHeight: 1, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          &times;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openCamera}
+                          disabled={uploading}
+                          style={{
+                            position: 'absolute', left: 0, right: 0, bottom: 0,
+                            border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff',
+                            fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: '6px 0',
+                            borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
+                          }}
+                        >
+                          📷 Re-take
+                        </button>
+                      </div>
                     ) : (
                       <div className="text-muted small pt-4">No image</div>
                     )}
