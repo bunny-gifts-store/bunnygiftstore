@@ -38,6 +38,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [fileName, setFileName] = useState('');
+  const [imageSource, setImageSource] = useState(''); // 'camera' | 'gallery' | ''
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const galleryInputRef = useRef(null); // "From your Gallery" picker
@@ -50,6 +51,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
   const clearImage = () => {
     set('image', '');
     setFileName('');
+    setImageSource('');
     if (galleryInputRef.current) galleryInputRef.current.value = '';
     if (captureInputRef.current) captureInputRef.current.value = '';
   };
@@ -86,10 +88,11 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     }
   };
 
-  const handleUpload = (e) => {
+  const handleUpload = (e, source) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setImageSource(source);
     uploadFile(file);
   };
 
@@ -155,6 +158,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
         const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
         closeCamera();
         setFileName('Camera photo');
+        setImageSource('camera');
         uploadFile(file);
       },
       'image/jpeg',
@@ -189,6 +193,16 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       setSaving(false);
     }
   };
+
+  // Size Options only make sense for photo frames (or a product that already
+  // has sizes, so an existing multi-size item can still be edited).
+  const selectedCategory = categories.find((c) => String(c.id) === String(form.categoryId));
+  const isFrameCategory = /frame/i.test(`${selectedCategory?.name || ''} ${selectedCategory?.slug || ''}`);
+  const showSizeOptions = isFrameCategory || sizes.length > 0;
+
+  // Re-take only applies to a photo just taken with the camera; a gallery
+  // upload has no "re-take", so the button is hidden for it.
+  const showRetake = imageSource === 'camera';
 
   return (
     <>
@@ -256,8 +270,8 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                           </span>
                         )}
                         {/* Hidden inputs: gallery picker + native-camera fallback. */}
-                        <input ref={galleryInputRef} type="file" accept="image/*" className="d-none" onChange={handleUpload} />
-                        <input ref={captureInputRef} type="file" accept="image/*" capture="environment" className="d-none" onChange={handleUpload} />
+                        <input ref={galleryInputRef} type="file" accept="image/*" className="d-none" onChange={(e) => handleUpload(e, 'gallery')} />
+                        <input ref={captureInputRef} type="file" accept="image/*" capture="environment" className="d-none" onChange={(e) => handleUpload(e, 'camera')} />
                       </div>
 
                       {form.image ? (
@@ -265,9 +279,11 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                           <img src={resolveImage(form.image)} alt="preview" className="image-preview-img" />
                           <button type="button" className="image-remove-btn" aria-label="Remove image"
                                   title="Remove image" onClick={clearImage}>&times;</button>
-                          <button type="button" className="image-retake-btn" onClick={openCamera} disabled={uploading}>
-                            <span aria-hidden="true">📷</span> Re-take Photo
-                          </button>
+                          {showRetake && (
+                            <button type="button" className="image-retake-btn" onClick={openCamera} disabled={uploading}>
+                              <span aria-hidden="true">📷</span> Re-take Photo
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="image-preview-empty">
@@ -282,13 +298,14 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                     {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
                   </div>
 
-                  {/* Per-size pricing — used by photo frames and any product sold
-                      in multiple sizes. Each size the customer can pick has its
-                      own price; leave empty for a single fixed-price product. */}
+                  {/* Per-size pricing — shown only for Photo Frames (or a product
+                      that already carries sizes). Each size the customer can pick
+                      has its own price. */}
+                  {showSizeOptions && (
                   <div className="col-12">
                     <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                       <label className="form-label mb-0">Size Options <span className="text-muted fw-normal">(for photo frames / multi-size products)</span></label>
-                      <button type="button" className="btn btn-sm btn-outline-primary" onClick={addSize}>+ Add Size</button>
+                      <button type="button" className="btn-theme-outline" onClick={addSize}>+ Add Size</button>
                     </div>
 
                     {sizes.length === 0 ? (
@@ -343,6 +360,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                       </div>
                     )}
                   </div>
+                  )}
 
                 </div>
               </div>

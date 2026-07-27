@@ -345,6 +345,25 @@ header {
 }
 .ipe-icon { font-size: 2rem; opacity: 0.55; }
 
+/* Small themed outline button (e.g. + Add Size) matching the purple theme. */
+.btn-theme-outline {
+  border: 2px solid var(--bg-light-purple);
+  background: #fff;
+  color: var(--bg-accent-color);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-theme-outline:hover {
+  background: linear-gradient(90deg, var(--bg-light-purple), var(--bg-accent-color));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(199, 125, 255, 0.35);
+}
+
 /* ---------- Product Details modal: centered + refined ----------
    Scoped to #productModal so the base theme (style.css) stays untouched.
    Only the body scrolls (not the whole card), so the slim scrollbar never
