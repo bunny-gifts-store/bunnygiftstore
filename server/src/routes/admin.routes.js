@@ -5,7 +5,7 @@ import fs from 'fs';
 import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../auth.js';
-import { getProductById, listProducts, asyncHandler } from '../helpers.js';
+import { getProductById, listProducts, asyncHandler, normalizeSizeOptions } from '../helpers.js';
 import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus, isValidUtr, UTR_HELP } from '../orderStatus.js';
 import { serializeOrder } from './orders.routes.js';
 
@@ -101,6 +101,9 @@ function parseProductBody(body) {
     priceLabel: body.priceLabel ? String(body.priceLabel).trim() : null,
     categoryId: body.categoryId ? Number(body.categoryId) : null,
     image: body.image ? String(body.image).trim() : null,
+    // Frame-style variable pricing: a cleaned JSON array (or null). Accepts an
+    // array from the admin form or the parsed array carried on an existing row.
+    sizeOptions: normalizeSizeOptions(body.sizeOptions),
     outOfStock: body.outOfStock ? 1 : 0,
     unavailable: body.unavailable ? 1 : 0,
     sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 0,
@@ -110,11 +113,12 @@ function parseProductBody(body) {
 router.post('/products', asyncHandler((req, res) => {
   const p = parseProductBody(req.body);
   if (!p.code || !p.name) return res.status(400).json({ error: 'Product code and name are required.' });
-  if (p.price == null && !p.priceLabel) return res.status(400).json({ error: 'Enter a price.' });
+  // A price isn't required when the product carries per-size pricing (frames).
+  if (p.price == null && !p.priceLabel && !p.sizeOptions) return res.status(400).json({ error: 'Enter a price.' });
   try {
     const info = db.prepare(`
-      INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, outOfStock, unavailable, sortOrder)
-      VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @outOfStock, @unavailable, @sortOrder)
+      INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, outOfStock, unavailable, sortOrder)
+      VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @outOfStock, @unavailable, @sortOrder)
     `).run(p);
     res.status(201).json(getProductById(info.lastInsertRowid));
   } catch (e) {
@@ -133,8 +137,8 @@ router.put('/products/:id', asyncHandler((req, res) => {
     db.prepare(`
       UPDATE products
       SET code=@code, name=@name, description=@description, price=@price, priceLabel=@priceLabel,
-          categoryId=@categoryId, image=@image, outOfStock=@outOfStock, unavailable=@unavailable,
-          sortOrder=@sortOrder, updatedAt=CURRENT_TIMESTAMP
+          categoryId=@categoryId, image=@image, sizeOptions=@sizeOptions, outOfStock=@outOfStock,
+          unavailable=@unavailable, sortOrder=@sortOrder, updatedAt=CURRENT_TIMESTAMP
       WHERE id=@id
     `).run({ ...p, id });
     res.json(getProductById(id));

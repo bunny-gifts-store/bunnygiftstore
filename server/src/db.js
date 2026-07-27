@@ -121,6 +121,63 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_products_category ON products(categoryId);
 `);
 
+// ---------------------------------------------------------------------------
+// Persistence self-check.
+//
+// Data loss ("products/users disappear after some time") happens when the API
+// runs on an EPHEMERAL filesystem (e.g. Render's free tier) using the plain
+// local SQLite file: every restart/sleep wipes the file, the schema is
+// recreated, and the seed repopulates only the built-in catalogue — so
+// admin-added products, registered users and their orders all vanish.
+//
+// The durable fix is Turso (env vars above). When it is NOT configured on a
+// production-like host we make the problem impossible to miss: a loud boot-time
+// warning, and (opt-in) a hard refusal so a misconfigured deploy can't quietly
+// take real orders onto disposable storage.
+// ---------------------------------------------------------------------------
+export const persistence = {
+  mode: usingTurso ? 'turso-embedded-replica' : 'local-sqlite-file',
+  durable: usingTurso,
+  dbPath: config.dbPath,
+};
+
+const isProdLike = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+if (!usingTurso && isProdLike) {
+  const banner = '='.repeat(74);
+  const message = [
+    '',
+    banner,
+    '[persistence] ⚠  DURABLE STORAGE IS NOT CONFIGURED — DATA WILL BE LOST.',
+    '',
+    '  This host looks like production but is using the local SQLite file:',
+    `    ${config.dbPath}`,
+    '  On an ephemeral filesystem this file is wiped on every restart/sleep,',
+    '  deleting all registered users, orders and admin-added products.',
+    '',
+    '  Fix (free): set these env vars to use Turso, then redeploy —',
+    '    TURSO_DATABASE_URL=libsql://<your-db>.turso.io',
+    '    TURSO_AUTH_TOKEN=<token>',
+    '  Setup:  turso db create bunnygiftstore',
+    '          turso db show bunnygiftstore --url',
+    '          turso db tokens create bunnygiftstore',
+    '',
+    '  To intentionally allow ephemeral storage (e.g. a throwaway demo) set',
+    '  ALLOW_EPHEMERAL_DB=1 to silence this and skip the safety refusal below.',
+    banner,
+    '',
+  ].join('\n');
+
+  if (process.env.ALLOW_EPHEMERAL_DB === '1') {
+    console.warn(message);
+  } else {
+    console.error(message);
+    console.error('[persistence] Refusing to start on ephemeral storage without ALLOW_EPHEMERAL_DB=1.');
+    // Exit so the misconfiguration is caught during deploy rather than after
+    // customers have placed orders that later disappear.
+    process.exit(1);
+  }
+}
+
 // The original orders table (from the previous version) may lack the newer
 // columns. Add them defensively so existing databases keep working.
 const orderCols = db.prepare(`PRAGMA table_info(orders)`).all().map((c) => c.name);

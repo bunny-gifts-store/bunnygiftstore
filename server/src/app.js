@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
-import './db.js';
+import { persistence } from './db.js';
 import { seedDatabase } from './seed.js';
 import authRoutes from './routes/auth.routes.js';
 import catalogRoutes from './routes/catalog.routes.js';
@@ -24,7 +24,12 @@ app.use(express.json({ limit: '1mb' }));
 // Basic rate limiting on auth to slow brute-force on the admin login.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, message: 'Bunny Gift Store API is live' }));
+app.get('/api/health', (_req, res) => res.json({
+  ok: true,
+  message: 'Bunny Gift Store API is live',
+  // Surface persistence so a misconfigured (data-losing) deploy is visible.
+  persistence: { mode: persistence.mode, durable: persistence.durable },
+}));
 
 app.use('/api/auth', authLimiter, authRoutes);
 // Admin login lives under /api/admin/login but is defined in authRoutes.

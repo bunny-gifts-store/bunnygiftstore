@@ -8,10 +8,17 @@ export function formatPrice(value) {
   return value || 'Price on request';
 }
 
-// Display price for a product (handles frame-style priceLabel).
+// Display price for a product (handles frame-style priceLabel + per-size pricing).
 export function displayPrice(product) {
   if (product.price != null) return formatPrice(product.price);
   if (product.priceLabel) return product.priceLabel;
+  // Multi-size product with no fixed price/label: show "From ₹<lowest size>".
+  if (Array.isArray(product.sizeOptions) && product.sizeOptions.length) {
+    const prices = product.sizeOptions
+      .map((o) => Number(o.price))
+      .filter((n) => Number.isFinite(n));
+    if (prices.length) return `From ${formatPrice(Math.min(...prices))}`;
+  }
   return 'Price on request';
 }
 

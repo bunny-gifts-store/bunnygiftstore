@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { adminFetchOrders, adminFetchProducts, adminUpdateOrder, apiError } from '../api.js';
 import { formatPrice, resolveImage, formatOrderNo } from '../utils.js';
@@ -156,16 +156,48 @@ export default function OrdersAdmin() {
     }
   };
 
+  // Refresh just the orders list (used by polling / focus). Kept separate from
+  // the initial load so a background refresh doesn't re-fetch the product images.
+  const refreshOrders = useCallback(async () => {
+    try {
+      setOrders(await adminFetchOrders());
+      setError('');
+    } catch (err) {
+      setError(apiError(err));
+    }
+  }, []);
+
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const [ord, products] = await Promise.all([adminFetchOrders(), adminFetchProducts()]);
+        if (cancelled) return;
         setOrders(ord);
         // Map code -> current image so older orders (no image in snapshot) still show a thumbnail.
         setImageByCode(Object.fromEntries(products.map((p) => [p.code, p.image])));
-      } catch (err) { setError(apiError(err)); }
+      } catch (err) { if (!cancelled) setError(apiError(err)); }
     })();
+    return () => { cancelled = true; };
   }, []);
+
+  // Near-real-time: every admin sees new/updated orders without a manual reload.
+  // Polling pauses while a details row is open or a save is in flight, so a
+  // background refresh can never clobber an edit the admin is making.
+  useEffect(() => {
+    const POLL_MS = 20000;
+    const tick = () => {
+      if (open !== null || savingOrder || savingDelivery) return;
+      refreshOrders();
+    };
+    const timer = setInterval(tick, POLL_MS);
+    const onFocus = () => tick();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [open, savingOrder, savingDelivery, refreshOrders]);
 
   const statusCounts = useMemo(() => {
     const m = Object.fromEntries(ORDER_STATUS_OPTIONS.map((s) => [s, 0]));

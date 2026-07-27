@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db } from './db.js';
+import { db, usingTurso } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
@@ -101,7 +101,7 @@ export function seedDatabase({ force = false } = {}) {
     VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @sortOrder)
   `);
 
-  const seedTxn = db.transaction(() => {
+  const runSeed = () => {
     CATEGORIES.forEach((name, i) => insertCategory.run(name, slugify(name), i));
 
     PRODUCTS.forEach((p, i) => {
@@ -135,9 +135,19 @@ export function seedDatabase({ force = false } = {}) {
         sortOrder: 100 + i,
       });
     }
-  });
+  };
 
-  seedTxn();
+  // libSQL embedded replicas (Turso) reject the client-side BEGIN/COMMIT that a
+  // better-sqlite3-style db.transaction() issues — it throws
+  // InvalidParserState("Init") because writes are forwarded to the remote
+  // primary. The seed is idempotent (INSERT OR IGNORE) and runs only once, so
+  // the transaction is just a minor speed-up: wrap it on a plain local file, run
+  // the same statements directly when syncing to Turso.
+  if (usingTurso) {
+    runSeed();
+  } else {
+    db.transaction(runSeed)();
+  }
   const total = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   console.log(`[seed] Seeded ${CATEGORIES.length} categories and ${total} products.`);
 }
