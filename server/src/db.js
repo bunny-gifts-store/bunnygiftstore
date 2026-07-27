@@ -24,51 +24,33 @@ const syncUrl = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
 export const usingTurso = Boolean(syncUrl && authToken);
 
+// Connect DIRECTLY to the Turso primary (remote-only) when configured — every
+// read and write goes to the same remote database, so it is strongly consistent
+// (read-your-writes) with nothing to fall out of sync.
+//
+// We deliberately do NOT use an embedded replica here. In replica mode reads
+// come from a local copy that only converges with the primary on db.sync(), so
+// freshly written rows (seeded products, new users, placed orders) were invisible
+// to the next read — that's why the catalog showed 0 products while categories
+// (written earlier) had already synced in. Remote-only trades a little read
+// latency (a network hop per query) for correctness, which is the right call for
+// a low-traffic store where data integrity is what matters.
 export const db = usingTurso
-  ? new Database(config.dbPath, {
-      syncUrl,
-      authToken,
-      // Pull remote changes in the background every N seconds (0/undefined = off).
-      syncInterval: Number(process.env.TURSO_SYNC_INTERVAL) || 60,
-    })
+  ? new Database(syncUrl, { authToken })
   : new Database(config.dbPath);
 
 if (usingTurso) {
-  // Pull the latest schema + data from the Turso primary BEFORE running the
-  // migrations/seed below, so existing data is visible and the seed correctly
-  // skips re-inserting products.
-  try {
-    db.sync();
-    console.log('[turso] Embedded replica synced with remote primary.');
-  } catch (err) {
-    console.error('[turso] Initial sync failed:', err.message);
-  }
-  // WAL is managed internally by libSQL for replicas; only foreign keys matter
-  // here (for our ON DELETE behaviour).
-  try { db.pragma('foreign_keys = ON'); } catch { /* non-critical on replicas */ }
+  try { db.pragma('foreign_keys = ON'); } catch { /* not supported on some remotes */ }
+  console.log('[turso] Connected directly to remote primary (strong consistency).');
 } else {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 }
 
-// Read-your-writes for the Turso embedded replica.
-//
-// With an embedded replica, WRITES are forwarded to the remote primary but
-// READS are served from the LOCAL replica file, which only converges on the
-// remote when db.sync() is called (or the background syncInterval fires). That
-// means a freshly inserted row (a new product, a just-registered user, a placed
-// order) is NOT visible to the very next read until a sync happens — which is
-// why seeded products didn't appear and admin-added products wouldn't show to
-// customers. Call this right AFTER any write so the local replica immediately
-// reflects it. No-op (and cost-free) when running on a plain local SQLite file.
-export function syncReplica() {
-  if (!usingTurso) return;
-  try {
-    db.sync();
-  } catch (err) {
-    console.error('[turso] Replica sync failed:', err.message);
-  }
-}
+// Retained as a no-op so existing call-sites stay valid. With a remote-only
+// Turso connection (or a plain local file) every read already reflects prior
+// writes, so there is no replica to sync.
+export function syncReplica() { /* no-op: connection is already strongly consistent */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -155,7 +137,7 @@ db.exec(`
 // take real orders onto disposable storage.
 // ---------------------------------------------------------------------------
 export const persistence = {
-  mode: usingTurso ? 'turso-embedded-replica' : 'local-sqlite-file',
+  mode: usingTurso ? 'turso-remote' : 'local-sqlite-file',
   durable: usingTurso,
   dbPath: config.dbPath,
 };

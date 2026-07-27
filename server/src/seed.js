@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db, usingTurso, syncReplica } from './db.js';
+import { db, usingTurso } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
@@ -101,17 +101,25 @@ export function seedDatabase({ force = false } = {}) {
     VALUES (@code, @name, @description, @price, @priceLabel, @categoryId, @image, @sizeOptions, @sortOrder)
   `);
 
+  // Insert one product, logging (but not aborting on) any failure so a single
+  // bad row can never wipe out the whole seed — and so the exact cause of a
+  // failure is visible in the deploy logs instead of a silent empty catalogue.
+  let failed = 0;
+  const seedProduct = (row) => {
+    try {
+      insertProduct.run(row);
+    } catch (e) {
+      failed += 1;
+      if (failed <= 5) console.error(`[seed] product ${row.code} failed:`, e.message);
+    }
+  };
+
   const runSeed = () => {
     CATEGORIES.forEach((name, i) => insertCategory.run(name, slugify(name), i));
-    // On a Turso replica the category rows were just written to the remote
-    // primary; pull them into the local replica so the getCategoryId reads below
-    // resolve to real ids instead of null (which would leave products
-    // uncategorised on the very first boot).
-    syncReplica();
 
     PRODUCTS.forEach((p, i) => {
       const categoryId = getCategoryId.get(p.category)?.id ?? null;
-      insertProduct.run({
+      seedProduct({
         code: p.code,
         name: p.name,
         description: p.description,
@@ -128,7 +136,7 @@ export function seedDatabase({ force = false } = {}) {
     const framesCategoryId = getCategoryId.get('Photo Frames')?.id ?? null;
     for (let i = 0; i < 27; i++) {
       const code = `F${i + 1}`;
-      insertProduct.run({
+      seedProduct({
         code,
         name: `Photo Frame ${code}`,
         description: 'High-quality photo frame available in multiple sizes.',
@@ -142,21 +150,17 @@ export function seedDatabase({ force = false } = {}) {
     }
   };
 
-  // libSQL embedded replicas (Turso) reject the client-side BEGIN/COMMIT that a
-  // better-sqlite3-style db.transaction() issues — it throws
-  // InvalidParserState("Init") because writes are forwarded to the remote
-  // primary. The seed is idempotent (INSERT OR IGNORE) and runs only once, so
-  // the transaction is just a minor speed-up: wrap it on a plain local file, run
-  // the same statements directly when syncing to Turso.
+  // libSQL rejects the client-side BEGIN/COMMIT that a better-sqlite3-style
+  // db.transaction() issues against a remote/replica connection
+  // (InvalidParserState). The seed is idempotent (INSERT OR IGNORE) and runs
+  // only once, so run the statements directly on Turso; keep the transaction
+  // (a minor speed-up) only for the plain local SQLite file.
   if (usingTurso) {
     runSeed();
-    // Pull the freshly-seeded products into the local replica so /api/products
-    // (which reads locally) returns them immediately, not only after the next
-    // background sync.
-    syncReplica();
   } else {
     db.transaction(runSeed)();
   }
+  if (failed) console.error(`[seed] ${failed} product(s) failed to insert.`);
   const total = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   console.log(`[seed] Seeded ${CATEGORIES.length} categories and ${total} products.`);
 }
