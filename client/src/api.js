@@ -89,6 +89,8 @@ export const adminUploadImage = (file) => {
   return api.post('/admin/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 };
 export const adminFetchOrders = () => api.get('/admin/orders').then((r) => r.data);
+// Registered customers, with each one's order history summarised.
+export const adminFetchUsers = () => api.get('/admin/users').then((r) => r.data);
 // Unified order update: pass any subset of { status, deliveryDay, deliveryDate, paymentStatus }.
 export const adminUpdateOrder = (id, patch) =>
   api.patch(`/admin/orders/${id}`, patch).then((r) => r.data);

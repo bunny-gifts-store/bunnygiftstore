@@ -27,6 +27,7 @@ export default function AdminLayout() {
           <NavLink to="/admin/products" onClick={close}>Products</NavLink>
           <NavLink to="/admin/categories" onClick={close}>Categories</NavLink>
           <NavLink to="/admin/orders" onClick={close}>Orders</NavLink>
+          <NavLink to="/admin/users" onClick={close}>Customers</NavLink>
           <NavLink to="/admin/settings" onClick={close}>Settings</NavLink>
           <Link to="/" target="_blank" rel="noopener" onClick={close}>View Store ↗</Link>
           <a href="#" onClick={(e) => { e.preventDefault(); close(); logout(); }}>Logout</a>

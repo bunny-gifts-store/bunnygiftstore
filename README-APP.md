@@ -17,7 +17,7 @@ client/            React SPA (storefront + admin panel)
   src/
     components/    Navbar, Footer, ProductCard, ProductModal, CartModal, LoginModal, …
     pages/         Home, About, Contact, PhotoFrames, AllGifts, Policy
-    admin/         AdminApp, AdminLogin, Dashboard, ProductsAdmin, ProductForm, Categories, Orders, Settings
+    admin/         AdminApp, AdminLogin, Dashboard, ProductsAdmin, ProductForm, Categories, Orders, Users, Settings
     context/       Auth, Cart, UI providers
     api.js         Axios API client
     enhancements.css   NEW styles only (theme in /css/style.css stays untouched)
@@ -91,6 +91,81 @@ then the order is saved to the DB and an order email is opened to the store owne
 ## Environment variables (`server/.env`, see `.env.example`)
 `PORT`, `JWT_SECRET` (set a strong secret in prod), `ADMIN_USERNAME`,
 `ADMIN_PASSWORD`, `CORS_ORIGINS`, `DB_PATH`, `UPLOADS_DIR`.
+
+### Which database am I looking at?
+
+There are **two separate databases**, and this trips people up:
+
+| | Local development | Live site (bunnygiftsstore.com) |
+|---|---|---|
+| Database | `server/bunnystore.db` (file on your PC) | Turso, hosted remotely |
+| Written by | your local `npm run dev` | the Render API |
+| Contains | only what you create locally | real customers, real orders |
+
+**Customers who register on the live site are never written to
+`server/bunnystore.db`.** Opening that file in DB Browser shows your local test
+data only — that is expected, not a bug. Confirm which mode any instance is in
+via `/api/health` → `persistence.mode` (`local-sqlite-file` vs `turso-remote`).
+
+To see live **customers** without leaving the browser, log into the admin panel
+on the live site and open **Customers** (`/admin/users`) — it lists every
+registered customer with their registration date, order count and total spent.
+
+To browse the **whole** live database (orders, products, audit trail) in a SQLite
+tool, pull a snapshot of it into a local file:
+
+```bash
+cd server
+# one-time: put the Render service's two Turso values in server/.env
+#   TURSO_DATABASE_URL=libsql://…turso.io
+#   TURSO_AUTH_TOKEN=…
+npm run db:pull            # -> server/live-snapshot.db
+```
+
+Open `server/live-snapshot.db` in DB Browser for SQLite to see every registered
+user, order and product from the live site. It is a read-only copy: the script
+only SELECTs from production, and editing the snapshot does not affect the live
+site. Re-run it any time for a fresh pull (it also doubles as a backup — keep
+dated copies). `*.db` is gitignored, so snapshots of real customer data can't be
+committed by accident.
+
+### Inspecting the database (local development)
+
+Everything the app does — registered users, products, categories, frame size
+options, orders and their full lifecycle, refunds, and every admin operation —
+is written to `server/bunnystore.db` and nothing is kept only in server memory.
+
+The API runs SQLite in WAL mode, where committed writes normally sit in a
+`bunnystore.db-wal` sidecar until SQLite decides to checkpoint. That would leave
+the `.db` file itself lagging behind the running app, so the server folds the log
+into the main file after **every** request that changes data (`persist()` in
+`src/db.js`, wired centrally in `src/app.js`). The result: `bunnystore.db` is
+always a complete, self-contained snapshot you can open, copy or edit at any
+moment — including with tools that ignore the `-wal` sidecar.
+
+Verify it at any time:
+
+```bash
+cd server
+npm run db:check
+```
+
+It copies the `.db` file **without** its sidecars — exactly what an external tool
+or a backup sees — and compares every table's row count and a content hash
+against the live database, then runs an integrity check.
+
+Editing the file directly (while the server runs) works too; the API picks the
+change up on its next query.
+
+**Admin audit trail.** Every admin operation is recorded in the `admin_activity`
+table (`action`, `entity`, `entityId`, a JSON `details` diff, and who did it).
+It's also where a **deleted** product or category survives — the row is gone from
+`products`, but its full contents remain in `details`. Readable via
+`GET /api/admin/activity` or straight from the table.
+
+**Not in the database, by design:** the shopping cart (browser `localStorage`
+until checkout, then snapshotted into `orders.items`) and auth tokens
+(`sessionStorage` / `localStorage`).
 
 ### Data persistence (production) — Turso
 Locally the API uses a plain SQLite file (`server/bunnystore.db`). In production

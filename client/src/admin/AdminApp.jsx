@@ -6,6 +6,7 @@ import Dashboard from './Dashboard.jsx';
 import ProductsAdmin from './ProductsAdmin.jsx';
 import CategoriesAdmin from './CategoriesAdmin.jsx';
 import OrdersAdmin from './OrdersAdmin.jsx';
+import UsersAdmin from './UsersAdmin.jsx';
 import Settings from './Settings.jsx';
 
 const AdminAuthContext = createContext(null);
@@ -41,6 +42,7 @@ export default function AdminApp() {
             <Route path="products" element={<ProductsAdmin />} />
             <Route path="categories" element={<CategoriesAdmin />} />
             <Route path="orders" element={<OrdersAdmin />} />
+            <Route path="users" element={<UsersAdmin />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Route>

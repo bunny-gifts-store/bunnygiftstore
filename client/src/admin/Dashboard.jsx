@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  adminFetchProducts, adminFetchCategories, adminFetchOrders, adminUpdateOrderStatus, apiError,
+  adminFetchProducts, adminFetchCategories, adminFetchOrders, adminFetchUsers,
+  adminUpdateOrderStatus, apiError,
 } from '../api.js';
 import { formatPrice, formatOrderNo } from '../utils.js';
 import { ORDER_STATUS_OPTIONS, ORDER_STATUS_LABELS } from '../orderStatus.js';
 import OrderStatusBadge from './OrderStatusBadge.jsx';
 
 export default function Dashboard() {
-  const [counts, setCounts] = useState({ products: 0, categories: 0, outOfStock: 0, unavailable: 0 });
+  const [counts, setCounts] = useState({ products: 0, categories: 0, outOfStock: 0, unavailable: 0, customers: 0 });
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
@@ -16,14 +17,15 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [products, categories, allOrders] = await Promise.all([
-          adminFetchProducts(), adminFetchCategories(), adminFetchOrders(),
+        const [products, categories, allOrders, users] = await Promise.all([
+          adminFetchProducts(), adminFetchCategories(), adminFetchOrders(), adminFetchUsers(),
         ]);
         setCounts({
           products: products.length,
           categories: categories.length,
           outOfStock: products.filter((p) => p.outOfStock).length,
           unavailable: products.filter((p) => p.unavailable).length,
+          customers: users.length,
         });
         setOrders(allOrders);
       } catch (err) {
@@ -61,6 +63,7 @@ export default function Dashboard() {
     { num: counts.categories, label: 'Categories', to: '/admin/categories' },
     { num: counts.outOfStock, label: 'Out of Stock', to: '/admin/products?filter=oos' },
     { num: counts.unavailable, label: 'Unavailable', to: '/admin/products?filter=unavailable' },
+    { num: counts.customers, label: 'Customers', to: '/admin/users' },
   ];
 
   // Total + one card per order status; each opens the Orders page pre-filtered.
