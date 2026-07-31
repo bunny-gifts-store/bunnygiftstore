@@ -7,6 +7,7 @@ import ProductModal from './components/ProductModal.jsx';
 import MobileCartBar from './components/MobileCartBar.jsx';
 import ContentProtection from './components/ContentProtection.jsx';
 import UserLoginScreen from './components/UserLoginScreen.jsx';
+import WelcomeOverlay from './components/WelcomeOverlay.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
@@ -27,7 +28,7 @@ function ScrollManager() {
 }
 
 function StorefrontLayout({ children }) {
-  const { user } = useAuth();
+  const { user, welcome } = useAuth();
 
   // Gate: require registration/login before browsing or ordering.
   if (!user) return <UserLoginScreen />;
@@ -40,6 +41,9 @@ function StorefrontLayout({ children }) {
       <CartModal />
       <ProductModal />
       <MobileCartBar />
+      {/* Straight after sign-in: covers the storefront (which loads behind it)
+          until the customer continues to the home page. */}
+      {welcome && <WelcomeOverlay />}
     </div>
   );
 }

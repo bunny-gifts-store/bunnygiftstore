@@ -22,11 +22,15 @@ export default function UserLoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  // A legacy account being given a password goes through the signup form but is
+  // NOT a new customer — they should still be greeted with "Welcome Back".
+  const [claimingLegacy, setClaimingLegacy] = useState(false);
 
   const switchMode = (next, msg = '') => {
     setMode(next);
     setError('');
     setNotice(msg);
+    setClaimingLegacy(false); // callers that ARE claiming a legacy account re-set it after
   };
 
   const handleLogin = async (e) => {
@@ -39,12 +43,13 @@ export default function UserLoginScreen() {
     setBusy(true);
     try {
       const data = await loginUser({ identifier: identifier.trim(), password: loginPassword });
-      login(data);
+      login(data, { returning: true });
     } catch (err) {
       // Legacy account without a password yet — send them to create one.
       if (err?.response?.data?.error === 'NO_PASSWORD') {
         setMobile(/^\d{10}$/.test(identifier.trim()) ? identifier.trim() : '');
         switchMode('signup', 'Please create a password to finish setting up your account.');
+        setClaimingLegacy(true);
       } else {
         setError(apiError(err, 'Could not log you in. Please try again.'));
       }
@@ -63,7 +68,7 @@ export default function UserLoginScreen() {
     setBusy(true);
     try {
       const data = await registerUser({ mobile, username: username.trim(), password });
-      login(data); // account created — storefront unlocks
+      login(data, { returning: claimingLegacy }); // account created — storefront unlocks
     } catch (err) {
       setError(apiError(err, 'Could not create your account. Please try again.'));
     } finally {

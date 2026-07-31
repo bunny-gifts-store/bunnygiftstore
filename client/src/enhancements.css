@@ -1887,3 +1887,213 @@ mark.search-hit {
   .header-search-name { font-size: 0.88rem; }
   .header-search-side { display: none; }    /* keep the row readable on narrow phones */
 }
+
+/* ============================================================
+   Welcome celebration (shown once, right after sign-in)
+   ============================================================
+   Two animations run together:
+     - the "flower shot": one bloom of petals that blows open behind the logo;
+     - colour papers that burst from the centre and sweep the popup's FULL
+       width and height before drifting off past its edges.
+
+   How the papers cover the whole popup: each piece is a wrapper stretched over
+   the entire card (inset: 0) with a paper centred inside it. `translate()`
+   percentages resolve against the element's own box, so the wrapper's 50% in x
+   is exactly half the popup's width and 50% in y half its height — the flight
+   paths scale with the popup at any size, using transforms only (no layout,
+   no repaint). The per-piece angles/distances/colours come from
+   WelcomeOverlay.jsx as inline custom properties. */
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;                 /* above the sticky header (z-index 1000) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  /* Opaque on purpose: the storefront loads behind this but must not show
+     through until the customer continues. Same gradient as the login gate, so
+     the celebration reads as the last step of signing in. */
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(255, 184, 220, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 20%, rgba(255, 200, 120, 0.20) 0%, transparent 45%),
+    linear-gradient(180deg, #2a1746 0%, #4a2470 35%, #7b4397 70%, #9a5fb5 100%);
+  animation: welcomeFadeIn 0.3s ease both;
+}
+@keyframes welcomeFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.welcome-card {
+  /* Single source of truth for the popup's typography: the greeting line is
+     sized FROM the logo (below), so both scale together. */
+  --welcome-logo-size: 2.5rem;
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  padding: 2.9rem 1.75rem 2.3rem;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4);
+  overflow: hidden;              /* papers disappear at the popup's edges */
+  text-align: center;
+  animation: welcomePop 0.5s cubic-bezier(0.18, 0.9, 0.32, 1.25) both;
+}
+@keyframes welcomePop {
+  from { opacity: 0; transform: scale(0.86) translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.welcome-content { position: relative; z-index: 2; }
+
+.welcome-kicker {
+  /* "Welcome To" / "Welcome Back To", sized against the logo it introduces. */
+  font-size: calc(var(--welcome-logo-size) * 0.46);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bg-secondary-color);
+  opacity: 0.85;
+  margin: 0 0 0.35rem;
+  line-height: 1.2;
+  animation: welcomeRise 0.55s ease 0.12s both;
+}
+
+/* The header's logo, reused as-is (.logo carries the gradient and the 🐰).
+   Only the size and centring change here. */
+.welcome-logo.logo {
+  font-size: var(--welcome-logo-size);
+  justify-content: center;
+  margin: 0;
+  line-height: 1.2;
+  animation: welcomeRise 0.55s ease 0.2s both;
+}
+.welcome-logo.logo::before { font-size: 1.05em; }   /* bunny scales with the logo */
+
+.welcome-subtitle {
+  margin: 0.85rem auto 0;
+  max-width: 26rem;   /* wide enough to keep the returning-user line unbroken */
+  font-size: 0.95rem;
+  color: #6c757d;
+  line-height: 1.5;
+  animation: welcomeRise 0.55s ease 0.3s both;
+}
+
+.welcome-cta {
+  margin-top: 1.6rem;
+  padding: 0.7rem 2.1rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 10px 24px rgba(199, 125, 255, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: welcomeRise 0.55s ease 0.4s both;
+}
+.welcome-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(199, 125, 255, 0.5); }
+.welcome-cta:focus-visible { outline: 3px solid rgba(123, 67, 151, 0.45); outline-offset: 3px; }
+
+@keyframes welcomeRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- The flower shot ----------
+   Twelve petals blowing open from the centre, once, as the popup lands. */
+.welcome-bloom {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 1;                    /* behind the wording */
+  pointer-events: none;
+}
+.welcome-bloom span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 46px;
+  margin: -23px 0 0 -7px;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  background: linear-gradient(180deg, var(--bg-light-purple), var(--bg-accent-color));
+  opacity: 0;
+  animation: welcomeBloom 1.7s cubic-bezier(0.16, 0.84, 0.28, 1) 0.1s both;
+}
+@keyframes welcomeBloom {
+  0%   { transform: rotate(var(--a)) translateY(0) scale(0.15); opacity: 0; }
+  18%  { opacity: 0.55; }
+  100% { transform: rotate(var(--a)) translateY(-180px) scale(1.1); opacity: 0; }
+}
+
+/* ---------- The colour papers ---------- */
+.welcome-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 3;                    /* papers fly in front of the wording too */
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* The travel wrapper: full popup size, so its translate percentages are
+   percentages OF THE POPUP. */
+.welcome-confetti i {
+  position: absolute;
+  inset: 0;
+  opacity: 0;                    /* stays invisible through its start delay */
+  /* No will-change here: transform/opacity animations are composited anyway,
+     and promoting 64 popup-sized layers would cost more than it saves. */
+  animation: welcomeConfettiFly var(--dur) var(--delay) infinite;
+}
+@keyframes welcomeConfettiFly {
+  0%   { transform: translate(0, 0);               opacity: 0;
+         animation-timing-function: cubic-bezier(0.12, 0.72, 0.3, 1); }   /* shot out, decelerating */
+  7%   { opacity: 1; }
+  42%  { transform: translate(var(--bx), var(--by)); opacity: 1;
+         animation-timing-function: cubic-bezier(0.5, 0.05, 0.7, 0.6); }  /* then gravity takes over */
+  100% { transform: translate(var(--fx), var(--fy)); opacity: 0; }
+}
+/* The paper itself: tumbles on the spot while the wrapper carries it around. */
+.welcome-confetti i b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+  background: var(--c);
+  border-radius: var(--radius);
+  animation: welcomeConfettiTumble var(--spin) linear infinite;
+}
+@keyframes welcomeConfettiTumble {
+  0%   { transform: rotate(0deg)   scaleX(1); }
+  25%  { transform: rotate(90deg)  scaleX(0.15); }
+  50%  { transform: rotate(180deg) scaleX(1); }
+  75%  { transform: rotate(270deg) scaleX(0.15); }
+  100% { transform: rotate(360deg) scaleX(1); }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 575.98px) {
+  .welcome-card { --welcome-logo-size: 1.9rem; padding: 2.3rem 1.25rem 1.9rem; border-radius: 18px; }
+  .welcome-subtitle { font-size: 0.9rem; }
+  .welcome-bloom span { width: 11px; height: 36px; margin: -18px 0 0 -5.5px; }
+  @keyframes welcomeBloom {
+    0%   { transform: rotate(var(--a)) translateY(0) scale(0.15); opacity: 0; }
+    18%  { opacity: 0.55; }
+    100% { transform: rotate(var(--a)) translateY(-135px) scale(1.1); opacity: 0; }
+  }
+}
+
+/* Celebration is decorative — drop it entirely when motion is unwelcome. */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-bloom,
+  .welcome-confetti { display: none; }
+  .welcome-overlay,
+  .welcome-card,
+  .welcome-kicker,
+  .welcome-logo.logo,
+  .welcome-subtitle,
+  .welcome-cta { animation: none; }
+}
