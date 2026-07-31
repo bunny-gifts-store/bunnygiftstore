@@ -4,6 +4,8 @@ import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useUI } from '../context/UIContext.jsx';
 import HeaderSearch from './HeaderSearch.jsx';
+import InstallAppButton from './InstallAppButton.jsx';
+import usePwaInstall from '../pwa/usePwaInstall.js';
 
 // "Ramesh Nerella" -> "RN", "Ramesh" -> "R". Falls back to a dot rather than
 // rendering an empty circle if the name is missing.
@@ -21,6 +23,7 @@ export default function Navbar() {
   const { count } = useCart();
   const { user, logout } = useAuth();
   const { openCart } = useUI();
+  const { canInstall } = usePwaInstall();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
 
@@ -77,6 +80,15 @@ export default function Navbar() {
               {/* About and Contact live in the footer links instead. */}
               {user && (
                 <li className="nav-item"><NavLink className="nav-link" to="/my-orders" onClick={close}>My Orders</NavLink></li>
+              )}
+
+              {/* Only present when the browser can install the app and it isn't
+                  installed yet — otherwise the list item's spacing would leave
+                  a gap in the nav. */}
+              {canInstall && (
+                <li className="nav-item ms-lg-3 d-flex align-items-center">
+                  <InstallAppButton onDone={close} />
+                </li>
               )}
 
               <li className="nav-item ms-lg-3">

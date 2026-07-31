@@ -1,5 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import CartModal from './components/CartModal.jsx';
@@ -8,6 +8,8 @@ import MobileCartBar from './components/MobileCartBar.jsx';
 import ContentProtection from './components/ContentProtection.jsx';
 import UserLoginScreen from './components/UserLoginScreen.jsx';
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
+import PwaUpdatePrompt from './components/PwaUpdatePrompt.jsx';
+import OfflineNotice from './components/OfflineNotice.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
@@ -16,7 +18,9 @@ import PhotoFrames from './pages/PhotoFrames.jsx';
 import AllGifts from './pages/AllGifts.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 import Policy from './pages/Policy.jsx';
-import AdminApp from './admin/AdminApp.jsx';
+// The admin panel is a separate surface that shoppers never open — split it
+// into its own chunk so the storefront bundle stays small.
+const AdminApp = lazy(() => import('./admin/AdminApp.jsx'));
 
 // Scroll to top on route change (except when navigating to an in-page anchor).
 function ScrollManager() {
@@ -53,9 +57,19 @@ export default function App() {
     <>
       <ContentProtection />
       <ScrollManager />
+      {/* PWA layer — both render null until they have something to say. */}
+      <OfflineNotice />
+      <PwaUpdatePrompt />
       <Routes>
-        {/* Admin panel (separate surface) */}
-        <Route path="/admin/*" element={<AdminApp />} />
+        {/* Admin panel (separate surface, lazily loaded) */}
+        <Route
+          path="/admin/*"
+          element={
+            <Suspense fallback={<div className="pwa-route-loading">Loading…</div>}>
+              <AdminApp />
+            </Suspense>
+          }
+        />
 
         {/* Storefront */}
         <Route path="/" element={<StorefrontLayout><Home /></StorefrontLayout>} />

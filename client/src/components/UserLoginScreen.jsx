@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { loginUser, registerUser, apiError } from '../api.js';
 import PasswordInput from './PasswordInput.jsx';
+import InstallAppButton from './InstallAppButton.jsx';
 
 // Full-page gate: users must log in (returning) or create an account (first time:
 // mobile + name + password) before they can browse or order.
@@ -124,6 +125,10 @@ export default function UserLoginScreen() {
           >
             New here? Create an account
           </button>
+
+          {/* The storefront is gated behind this screen, so offer the install
+              here too. Renders nothing on browsers that can't install. */}
+          <InstallAppButton variant="block" />
         </form>
       ) : (
         <form className="user-login-card" onSubmit={handleSignup}>

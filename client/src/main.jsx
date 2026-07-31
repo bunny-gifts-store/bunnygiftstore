@@ -7,6 +7,10 @@ import { UIProvider } from './context/UIContext.jsx';
 import App from './App.jsx';
 import { warmUpApi } from './api.js';
 import './enhancements.css';
+import './pwa/pwa.css';
+// Side-effect import: captures `beforeinstallprompt`, which browsers can fire
+// before React has mounted. Must run as early as possible.
+import './pwa/installPrompt.js';
 
 // Start waking the (idle-spun-down) production API immediately, so it's ready
 // by the time the user logs in — avoids the long cold-start wait on click.
