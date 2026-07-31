@@ -43,14 +43,40 @@ if (usingTurso) {
   try { db.pragma('foreign_keys = ON'); } catch { /* not supported on some remotes */ }
   console.log('[turso] Connected directly to remote primary (strong consistency).');
 } else {
+  // WAL keeps committed transactions in a side file (bunnystore.db-wal) and only
+  // folds them into bunnystore.db at a CHECKPOINT — by default once the log grows
+  // past ~1000 pages, or on a clean close. No data is ever lost (SQLite replays
+  // the WAL on the next open), but the .db file ON ITS OWN lags behind the live
+  // app, so opening/copying just that file shows stale, incomplete data.
+  // persist() below closes that gap after every write.
   db.pragma('journal_mode = WAL');
+  // fsync every commit: an acknowledged order can't be lost to a crash/power cut.
+  db.pragma('synchronous = FULL');
   db.pragma('foreign_keys = ON');
 }
 
-// Retained as a no-op so existing call-sites stay valid. With a remote-only
-// Turso connection (or a plain local file) every read already reflects prior
-// writes, so there is no replica to sync.
-export function syncReplica() { /* no-op: connection is already strongly consistent */ }
+// Fold the write-ahead log into the main .db file so the file on disk is a
+// complete, self-contained snapshot of the live application state.
+//
+// This is what makes `server/bunnystore.db` directly inspectable (and editable)
+// at any moment with any SQLite tool — including ones that ignore the -wal
+// sidecar, and including a plain file copy. app.js calls it after every request
+// that changes data, so no write path can forget it.
+//
+// TRUNCATE (rather than PASSIVE) also resets the -wal file to zero bytes, so a
+// non-empty sidecar is a reliable signal that something still needs flushing.
+export function persist() {
+  // Turso: writes go straight to the remote primary, which is already durable —
+  // there is no local log to check point.
+  if (usingTurso) return;
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)');
+  } catch (err) {
+    // A checkpoint can be skipped if another connection holds a read lock; the
+    // data stays safely committed in the WAL and the next call folds it in.
+    console.error('[persist] WAL checkpoint failed:', err.message);
+  }
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -117,10 +143,28 @@ db.exec(`
     cancellationReason TEXT,        -- required when an order is cancelled
     cancelledAt   TEXT,             -- system timestamp when the order was cancelled
     cancelledBy   TEXT,             -- who cancelled: 'user' | 'admin'
-    createdAt     TEXT DEFAULT CURRENT_TIMESTAMP
+    createdAt     TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt     TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Audit trail of every admin operation (logins, catalogue CRUD, order
+  -- changes). Two jobs: it makes admin activity reviewable long after the fact,
+  -- and its JSON "details" keeps a record of DELETED rows, which would otherwise
+  -- leave no trace in the database at all.
+  CREATE TABLE IF NOT EXISTS admin_activity (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    adminId   INTEGER,
+    username  TEXT,
+    action    TEXT NOT NULL,   -- e.g. product.create, order.update, admin.login
+    entity    TEXT,            -- product | category | order | admin
+    entityId  INTEGER,
+    details   TEXT,            -- JSON: what changed (and full row on delete)
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE INDEX IF NOT EXISTS idx_products_category ON products(categoryId);
+  CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(userId);
+  CREATE INDEX IF NOT EXISTS idx_activity_created ON admin_activity(createdAt);
 `);
 
 // ---------------------------------------------------------------------------
@@ -239,5 +283,17 @@ if (!orderCols.includes('cancelledBy')) {
   // Existing cancelled orders were all cancelled from the admin panel.
   db.exec(`UPDATE orders SET cancelledBy = 'admin' WHERE status = 'cancelled' AND cancelledBy IS NULL`);
 }
+// Last-modified stamp, maintained on every order update so the admin's changes
+// (status, delivery schedule, refund) are traceable in the database itself.
+if (!orderCols.includes('updatedAt')) {
+  // No DEFAULT here: SQLite rejects a non-constant default in ALTER TABLE ADD
+  // COLUMN, so backfill existing rows from createdAt instead.
+  db.exec(`ALTER TABLE orders ADD COLUMN updatedAt TEXT`);
+  db.exec(`UPDATE orders SET updatedAt = createdAt WHERE updatedAt IS NULL`);
+}
+
+// Fold the schema creation/migration above into the .db file straight away, so
+// a freshly provisioned database is complete on disk before serving traffic.
+persist();
 
 export default db;

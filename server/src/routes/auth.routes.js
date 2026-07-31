@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db, syncReplica } from '../db.js';
+import { db } from '../db.js';
 import { signUserToken, signAdminToken, requireAuth } from '../auth.js';
 import { asyncHandler } from '../helpers.js';
+import { recordAdminAction } from '../activity.js';
 
 const router = Router();
 
@@ -49,12 +50,10 @@ router.post('/register', asyncHandler((req, res) => {
     // Legacy passwordless account: claim it by setting the name + password.
     db.prepare('UPDATE users SET username = ?, passwordHash = ? WHERE id = ?')
       .run(username, passwordHash, existing.id);
-    syncReplica();
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
   } else {
     const info = db.prepare('INSERT INTO users (mobile, username, passwordHash) VALUES (?, ?, ?)')
       .run(mobile, username, passwordHash);
-    syncReplica();
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
 
@@ -117,6 +116,8 @@ router.post('/admin/login', asyncHandler((req, res) => {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
   const token = signAdminToken(admin);
+  // req.auth isn't set on the login route itself — pass the admin explicitly.
+  recordAdminAction({ sub: admin.id, username: admin.username }, { action: 'admin.login', entity: 'admin', entityId: admin.id });
   res.json({ token, admin: { id: admin.id, username: admin.username } });
 }));
 
@@ -133,7 +134,7 @@ router.post('/admin/change-password', requireAuth('admin'), asyncHandler((req, r
   }
   const hash = bcrypt.hashSync(newPassword, 10);
   db.prepare('UPDATE admins SET passwordHash = ? WHERE id = ?').run(hash, admin.id);
-  syncReplica();
+  recordAdminAction(req.auth, { action: 'admin.password_change', entity: 'admin', entityId: admin.id });
   res.json({ ok: true });
 }));
 

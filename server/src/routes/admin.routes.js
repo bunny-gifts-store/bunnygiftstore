@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { db, syncReplica } from '../db.js';
+import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { getProductById, listProducts, asyncHandler, normalizeSizeOptions } from '../helpers.js';
 import { isValidStatus, isValidPaymentStatus, isValidRefundStatus, normalizeStatus, isValidUtr, UTR_HELP } from '../orderStatus.js';
 import { saveImage, deleteImage } from '../storage.js';
 import { serializeOrder } from './orders.routes.js';
+import { recordAdminAction } from '../activity.js';
 
 const router = Router();
 router.use(requireAuth('admin'));
@@ -29,6 +30,10 @@ const upload = multer({
 router.post('/upload', upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
   const path = await saveImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+  recordAdminAction(req.auth, {
+    action: 'image.upload',
+    details: { path, originalName: req.file.originalname, bytes: req.file.size },
+  });
   res.json({ path });
 }));
 
@@ -44,8 +49,9 @@ router.post('/categories', asyncHandler((req, res) => {
   try {
     const info = db.prepare('INSERT INTO categories (name, slug, sortOrder) VALUES (?, ?, ?)')
       .run(name, slugify(name), sortOrder);
-    syncReplica();
-    res.status(201).json(db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid));
+    const created = db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid);
+    recordAdminAction(req.auth, { action: 'category.create', entity: 'category', entityId: created.id, details: created });
+    res.status(201).json(created);
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Category already exists.' });
     throw e;
@@ -60,8 +66,12 @@ router.put('/categories/:id', asyncHandler((req, res) => {
   const sortOrder = req.body.sortOrder != null ? Number(req.body.sortOrder) : existing.sortOrder;
   db.prepare('UPDATE categories SET name = ?, slug = ?, sortOrder = ? WHERE id = ?')
     .run(name, slugify(name), sortOrder, id);
-  syncReplica();
-  res.json(db.prepare('SELECT * FROM categories WHERE id = ?').get(id));
+  const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  recordAdminAction(req.auth, {
+    action: 'category.update', entity: 'category', entityId: id,
+    details: { before: existing, after: updated },
+  });
+  res.json(updated);
 }));
 
 router.delete('/categories/:id', asyncHandler((req, res) => {
@@ -70,8 +80,12 @@ router.delete('/categories/:id', asyncHandler((req, res) => {
   if (count > 0) {
     return res.status(409).json({ error: `Cannot delete: ${count} product(s) use this category. Reassign them first.` });
   }
+  // Capture the row before it goes: the audit trail is the only remaining
+  // record of a deleted category.
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Category not found.' });
   db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-  syncReplica();
+  recordAdminAction(req.auth, { action: 'category.delete', entity: 'category', entityId: id, details: existing });
   res.json({ ok: true });
 }));
 
@@ -118,7 +132,9 @@ router.post('/products', asyncHandler((req, res) => {
       INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, outOfStock, unavailable, sortOrder)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder);
-    res.status(201).json(getProductById(info.lastInsertRowid));
+    const created = getProductById(info.lastInsertRowid);
+    recordAdminAction(req.auth, { action: 'product.create', entity: 'product', entityId: created.id, details: created });
+    res.status(201).json(created);
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
     throw e;
@@ -139,7 +155,12 @@ router.put('/products/:id', asyncHandler((req, res) => {
           unavailable=?, sortOrder=?, updatedAt=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder, id);
-    res.json(getProductById(id));
+    const updated = getProductById(id);
+    recordAdminAction(req.auth, {
+      action: 'product.update', entity: 'product', entityId: id,
+      details: { before: existing, after: updated },
+    });
+    res.json(updated);
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
     throw e;
@@ -155,16 +176,24 @@ router.patch('/products/:id/status', asyncHandler((req, res) => {
   const unavailable = req.body.unavailable != null ? (req.body.unavailable ? 1 : 0) : (existing.unavailable ? 1 : 0);
   db.prepare('UPDATE products SET outOfStock = ?, unavailable = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?')
     .run(outOfStock, unavailable, id);
-  syncReplica();
+  recordAdminAction(req.auth, {
+    action: 'product.status_change', entity: 'product', entityId: id,
+    details: {
+      before: { outOfStock: !!existing.outOfStock, unavailable: !!existing.unavailable },
+      after: { outOfStock: !!outOfStock, unavailable: !!unavailable },
+    },
+  });
   res.json(getProductById(id));
 }));
 
 router.delete('/products/:id', asyncHandler((req, res) => {
   const id = Number(req.params.id);
-  const existing = db.prepare('SELECT image FROM products WHERE id = ?').get(id);
+  // Read the WHOLE row, not just the image: once deleted, the audit trail below
+  // is the only place this product's details still exist in the database.
+  const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
   db.prepare('DELETE FROM products WHERE id = ?').run(id);
-  syncReplica();
+  recordAdminAction(req.auth, { action: 'product.delete', entity: 'product', entityId: id, details: existing });
   // Best-effort cleanup of an admin-uploaded image (Cloudinary or local uploads).
   // Never touches the bundled images/ that ship with the app.
   if (existing.image && !existing.image.startsWith('images/')) {
@@ -274,14 +303,25 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
     updates.refundUpdatedAt = new Date().toISOString();
   }
 
+  // Checked BEFORE the updatedAt stamp is added below, so a request carrying no
+  // real changes is still rejected rather than silently touching the row.
   const keys = Object.keys(updates);
   if (keys.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
+  updates.updatedAt = new Date().toISOString();
 
   // Positional params (?) — Turso remote doesn't bind @-named params.
-  const setClause = keys.map((k) => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE orders SET ${setClause} WHERE id = ?`).run(...keys.map((k) => updates[k]), id);
+  const fields = Object.keys(updates);
+  const setClause = fields.map((k) => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE orders SET ${setClause} WHERE id = ?`).run(...fields.map((k) => updates[k]), id);
 
-  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  recordAdminAction(req.auth, {
+    action: 'order.update', entity: 'order', entityId: id,
+    // Only the fields that actually changed, plus their previous values — a
+    // compact, readable history of how the order reached its current state.
+    details: { changed: updates, before: Object.fromEntries(keys.map((k) => [k, existing[k]])) },
+  });
+  res.json(serializeOrder(updated));
 }));
 
 // Back-compat: dedicated status endpoint delegates to the same logic.
@@ -298,9 +338,41 @@ router.patch('/orders/:id/status', asyncHandler((req, res) => {
   if (current === 'delivered' && status !== 'delivered') {
     return res.status(409).json({ error: 'This order is delivered; its status can no longer be changed.' });
   }
-  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
-  syncReplica();
+  db.prepare('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?')
+    .run(status, new Date().toISOString(), id);
+  recordAdminAction(req.auth, {
+    action: 'order.status_change', entity: 'order', entityId: id,
+    details: { before: current, after: status },
+  });
   res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+}));
+
+// ---- Customers ----
+// GET /api/admin/users  -- every registered customer, newest first, with their
+// order history summarised. Deliberately never selects passwordHash.
+router.get('/users', asyncHandler((_req, res) => {
+  const rows = db.prepare(`
+    SELECT u.id, u.mobile, u.username, u.createdAt,
+           COUNT(o.id)                                     AS orderCount,
+           COALESCE(SUM(CASE WHEN o.status = 'cancelled' THEN 0
+                             ELSE o.totalAmount END), 0)   AS totalSpent,
+           MAX(o.createdAt)                                AS lastOrderAt
+    FROM users u
+    LEFT JOIN orders o ON o.userId = u.id
+    GROUP BY u.id
+    ORDER BY u.id DESC
+  `).all();
+  res.json(rows);
+}));
+
+// ---- Admin activity log ----
+// GET /api/admin/activity?limit=100  -- the audit trail, newest first.
+// The same rows are readable straight from the `admin_activity` table; this just
+// makes them reachable without opening the database file.
+router.get('/activity', asyncHandler((req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 1000);
+  const rows = db.prepare('SELECT * FROM admin_activity ORDER BY id DESC LIMIT ?').all(limit);
+  res.json(rows.map((r) => ({ ...r, details: r.details ? JSON.parse(r.details) : null })));
 }));
 
 export default router;

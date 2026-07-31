@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
-import { persistence } from './db.js';
+import { persistence, persist } from './db.js';
 import { seedStatus } from './seed.js';
 import { usingCloudinary } from './storage.js';
 import authRoutes from './routes/auth.routes.js';
@@ -24,6 +24,25 @@ app.set('trust proxy', 1);
 // is safe. This avoids http/https/www mismatches from the static frontend host.
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '1mb' }));
+
+// Flush every data-changing request into the main .db file.
+//
+// SQLite has already COMMITTED the write by this point — nothing can be lost —
+// but in WAL mode the committed rows sit in bunnystore.db-wal until a
+// checkpoint. Doing it here, once, for every mutating method means no individual
+// route can forget to (three of them previously did), so the database file on
+// disk always reflects the live application's state.
+//
+// It runs on 'finish' — after the response has been flushed — so the checkpoint
+// never adds latency to the request. The file therefore trails an acknowledged
+// write by well under a millisecond, not by a request.
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  // Unconditional: a request that failed part-way may still have committed rows,
+  // and checkpointing an empty log costs nothing.
+  res.on('finish', persist);
+  next();
+});
 
 // Basic rate limiting on auth to slow brute-force on the admin login.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });

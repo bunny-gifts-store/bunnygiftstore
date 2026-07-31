@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db, usingTurso } from './db.js';
+import { db, usingTurso, persist } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
@@ -93,6 +93,11 @@ export function seedDatabase({ force = false } = {}) {
     console.log(`[seed] Created default admin "${config.defaultAdmin.username}". Change the password after first login.`);
   }
 
+  // Seeding runs outside any HTTP request, so app.js's per-request flush doesn't
+  // cover it — fold the default admin (and, below, the catalogue) into the .db
+  // file here.
+  persist();
+
   const productCount = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   if (productCount > 0 && !force) {
     console.log('[seed] Products already present; skipping product seed.');
@@ -180,6 +185,7 @@ export function seedDatabase({ force = false } = {}) {
   } else {
     db.transaction(runSeed)();
   }
+  persist();
   if (failed) console.error(`[seed] ${failed} product(s) failed to insert.`);
   const total = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
   console.log(`[seed] Seeded ${CATEGORIES.length} categories and ${total} products.`);

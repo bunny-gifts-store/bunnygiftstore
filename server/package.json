@@ -6,7 +6,9 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node src/seed.js",
-    "seed:force": "node src/seed.js --force"
+    "seed:force": "node src/seed.js --force",
+    "db:check": "node src/db-check.js",
+    "db:pull": "node src/db-pull.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
