@@ -2,6 +2,7 @@ import app from './src/app.js';
 import { config } from './src/config.js';
 import { persist, initSchema, dbStatus } from './src/db.js';
 import { seedDatabase } from './src/seed.js';
+import { loadCatalogCache } from './src/catalogCache.js';
 
 // Open the HTTP port FIRST, before any database work.
 //
@@ -19,6 +20,10 @@ const server = app.listen(config.port, () => {
 
 // Everything that needs the database happens here, after the port is open.
 async function bootstrap() {
+  // Load the last known-good catalogue FIRST, so that if the database turns out
+  // to be unreachable the storefront is already browsable rather than blank.
+  loadCatalogCache();
+
   // Schema + migrations. Resolves false (rather than throwing) if the database
   // is unreachable, so the API stays up and reports why.
   const ready = await initSchema();

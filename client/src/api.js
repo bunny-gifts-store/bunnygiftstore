@@ -95,6 +95,22 @@ export const fetchCategories = () => api.get('/categories').then((r) => r.data);
 export const fetchProducts = (category) =>
   api.get('/products', { params: category ? { category } : {} }).then((r) => r.data);
 
+// Categories + products in one call, carrying the staleness flag the API sets
+// when it is serving its last known-good snapshot because the database is
+// unreachable. Shoppers can still browse in that state, but nothing can be
+// ordered — so the UI has to be able to say so.
+export const fetchCatalogSnapshot = async () => {
+  const [cats, prods] = await Promise.all([api.get('/categories'), api.get('/products')]);
+  const stale =
+    cats.headers?.['x-catalog-stale'] === 'true' || prods.headers?.['x-catalog-stale'] === 'true';
+  return {
+    categories: cats.data,
+    products: prods.data,
+    stale,
+    cachedAt: prods.headers?.['x-catalog-cached-at'] || cats.headers?.['x-catalog-cached-at'] || null,
+  };
+};
+
 // ---- Customer auth (password based) ----
 export const checkMobileExists = (mobile) =>
   api.get('/auth/exists', { params: { mobile } }).then((r) => r.data.exists);

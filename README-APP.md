@@ -126,6 +126,51 @@ The rules that keep this working:
 - **Data routes are gated on `dbStatus.ready`** and return a fast `503` when the
   schema isn't up, rather than blocking on a driver call that may never return.
 
+## Surviving a database outage
+
+The store depends on two free services chained together — Render for the API and
+Turso for the database — so it stays up only while both do. On 5 Aug 2026 Turso
+returned `502 upstream forward failed` for hours and took the whole storefront
+down with it.
+
+The API now degrades instead of dying:
+
+| | Database up | Database unreachable |
+|---|---|---|
+| Browse catalogue | live | **works** — served from the last saved snapshot, flagged `X-Catalog-Stale: true` |
+| Login / register | works | fast `503` with an honest message |
+| Place an order | works | fast `503` |
+| `/api/health`, `/api/ping` | works | works |
+
+**Every successful catalogue read is saved** to `server/cache/catalog.json`
+(`catalogCache.js`), and reloaded at boot *before* the database is tried. So a
+customer can still browse products during an outage, and the storefront is never
+blank.
+
+What it deliberately does **not** do: cache anything a customer could act on
+incorrectly. Orders and logins fail outright when the database is down, because
+accepting an order that cannot be stored — or authenticating against a stale
+copy of credentials — is far worse than an honest error. Degraded mode makes the
+store *browsable*, not operational, and [CategorizedCatalog.jsx](client/src/components/CategorizedCatalog.jsx)
+tells the shopper exactly that rather than letting them reach checkout first.
+
+The snapshot lives on the same ephemeral disk as everything else, so it survives
+a process restart but not a redeploy. The first successful read refills it.
+
+### Diagnosing Turso
+
+```bash
+cd server
+# put the Render service's two Turso values in server/.env.turso
+#   (NOT .env — .env.turso is gitignored and is not loaded by the app,
+#    so this cannot disturb local development)
+npm run turso:check
+```
+
+It makes one real connection and classifies the result — reachable, `502`
+unreachable, `401` token rejected, or `404` database gone — so the next action is
+unambiguous. It never prints the auth token.
+
 ### Diagnosing a slow or failed login
 
 ```bash

@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
 import { persistence, persist, dbStatus } from './db.js';
 import { seedStatus } from './seed.js';
+import { catalogCacheStatus } from './catalogCache.js';
 import { usingCloudinary } from './storage.js';
 import authRoutes from './routes/auth.routes.js';
 import catalogRoutes from './routes/catalog.routes.js';
@@ -72,6 +73,8 @@ app.get('/api/health', (_req, res) => res.json({
   // Surface the last seed outcome (counts + first failure) so the state of the
   // catalogue — and any seeding error — is verifiable without server logs.
   seed: seedStatus,
+  // Whether the storefront can still be browsed if the database is unreachable.
+  catalogCache: catalogCacheStatus(),
 }));
 
 // Guard every data route until the schema exists. Without this, requests
@@ -79,18 +82,40 @@ app.get('/api/health', (_req, res) => res.json({
 // driver call that will not return, and the process stops answering anything at
 // all. A fast, explicit 503 keeps the API responsive and tells the client what
 // is actually wrong.
+//
+// The message distinguishes the two cases deliberately. Telling someone to
+// "try again in a few seconds" during an hour-long database outage is not a
+// harmless inaccuracy — it makes them retry a login that cannot succeed, and it
+// hides a real incident behind routine-sounding text.
+const BOOT_GRACE_MS = 60_000;
+const bootedAt = Date.now();
+
 const requireDb = (_req, res, next) => {
   if (dbStatus.ready) return next();
-  res.set('Retry-After', '15').status(503).json({
-    error: 'The store is starting up. Please try again in a few seconds.',
+
+  const stillStarting = !dbStatus.error && Date.now() - bootedAt < BOOT_GRACE_MS;
+  res.set('Retry-After', stillStarting ? '10' : '60').status(503).json({
+    error: stillStarting
+      ? 'The store is starting up. Please try again in a few seconds.'
+      : 'The store is temporarily unavailable while we restore our database. '
+        + 'Your account and past orders are safe — please try again a little later.',
     detail: dbStatus.error || 'Database is initialising.',
   });
 };
 
+// MOUNTED FIRST, and intentionally NOT gated by requireDb: the catalogue falls
+// back to the last known-good snapshot so the storefront stays browsable during
+// a database outage.
+//
+// Order matters. `app.use('/api', requireDb, authRoutes)` below applies
+// requireDb to EVERY path under /api, not just the ones authRoutes handles, so
+// mounting the catalogue after it would let that gate 503 these routes before
+// they ever run. Requests the catalogue doesn't handle fall through untouched.
+app.use('/api', catalogRoutes);                // /api/categories, /api/products
+
 app.use('/api/auth', authLimiter, requireDb, authRoutes);
 // Admin login lives under /api/admin/login but is defined in authRoutes.
 app.use('/api', requireDb, authRoutes);        // exposes /api/admin/login, /api/admin/change-password
-app.use('/api', requireDb, catalogRoutes);     // /api/categories, /api/products
 app.use('/api/orders', requireDb, ordersRoutes);
 app.use('/api/admin', requireDb, adminRoutes); // protected CRUD
 

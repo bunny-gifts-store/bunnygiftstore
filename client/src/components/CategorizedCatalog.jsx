@@ -5,7 +5,7 @@ import { useCatalog } from '../hooks/useCatalog.js';
 // Shared catalog view: category filter chips + category-wise product sections.
 // - lockCategory: restrict to a single category slug (hides the filter bar).
 export default function CategorizedCatalog({ title, subtitle, lockCategory = null }) {
-  const { categories, products, loading, error } = useCatalog();
+  const { categories, products, loading, error, stale } = useCatalog();
   const [active, setActive] = useState(lockCategory || 'all');
 
   const effectiveCategories = lockCategory
@@ -34,6 +34,17 @@ export default function CategorizedCatalog({ title, subtitle, lockCategory = nul
       <div className="container">
         {title && <h2 className="section-title">{title}</h2>}
         {subtitle && <p className="section-subtitle">{subtitle}</p>}
+
+        {/* The catalogue is being served from a saved snapshot. Say so plainly:
+            letting someone fill a cart and only discover at checkout that
+            ordering is down is a worse experience than telling them now. */}
+        {stale && (
+          <div className="catalog-stale-notice" role="status">
+            <strong>You're viewing a saved copy of our store.</strong> We're having a
+            temporary problem on our side, so prices and availability may be out of
+            date and orders can't be placed just yet. Please check back shortly.
+          </div>
+        )}
 
         {!lockCategory && effectiveCategories.length > 0 && (
           <div className="category-filter" role="tablist" aria-label="Product categories">

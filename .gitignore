@@ -49,3 +49,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Runtime catalogue snapshot (served when the database is unreachable)
+server/cache/

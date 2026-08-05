@@ -8,7 +8,8 @@
     "seed": "node src/seed.js",
     "seed:force": "node src/seed.js --force",
     "db:check": "node src/db-check.js",
-    "db:pull": "node src/db-pull.js"
+    "db:pull": "node src/db-pull.js",
+    "turso:check": "node src/turso-check.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -2186,3 +2186,28 @@ mark.search-hit {
   .user-login-card { padding: 1.75rem 1.25rem; }
   .reset-account-chip { font-size: 0.85rem; }
 }
+
+/* ============================================================
+   Degraded-mode notice (catalogue served from saved snapshot)
+   ============================================================ */
+
+/* Amber, not red: the store still works for browsing, so this is a caution
+   rather than a failure. Sits above the product grid where it can't be missed. */
+.catalog-stale-notice {
+  max-width: 900px;
+  margin: 0 auto 2rem;
+  padding: 0.9rem 1.15rem;
+  border-radius: 12px;
+  background: #fff8e6;
+  border: 1px solid #f0d089;
+  border-left: 4px solid #e0a800;
+  color: #6b5200;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.catalog-stale-notice strong { display: block; margin-bottom: 0.15rem; color: #5a4400; }
+
+@media (max-width: 576px) {
+  .catalog-stale-notice { font-size: 0.86rem; padding: 0.8rem 0.9rem; text-align: left; }
+}
