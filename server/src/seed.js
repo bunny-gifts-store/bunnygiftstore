@@ -3,7 +3,7 @@ import { db, usingTurso, persist } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
-const CATEGORIES = [
+export const CATEGORIES = [
   'Personalised Keepsakes',
   'Jewellery & Lockets',
   'Keychains',
@@ -20,7 +20,7 @@ const CATEGORIES = [
 
 // The existing 42 storefront products, now with an assigned category.
 // image paths are relative to the frontend public root (images/CODE.png).
-const PRODUCTS = [
+export const PRODUCTS = [
   { code: 'LA01', name: 'Premium Heart Lamp', price: 350, category: 'Lamps & Lighting', description: 'Romantic premium heart lamp with glowing LED lighting.' },
   { code: 'CO01', name: 'Corporate Gift Combo Set', price: 1250, category: 'Corporate Gifts', description: 'Premium gifting combo ideal for corporate events and clients.' },
   { code: 'NB01', name: 'New Born Baby T-shirts & Rompers', price: 550, category: 'Baby & Kids', description: 'Soft newborn baby t-shirts and rompers in cute designs.' },
@@ -64,14 +64,14 @@ const PRODUCTS = [
   { code: 'BG24', name: 'Dog Photo Frame', price: 350, category: 'Photo Frames', description: 'Photo frame specially designed for pet dog photo displays.' },
 ];
 
-const FRAME_SIZE_OPTIONS = [
+export const FRAME_SIZE_OPTIONS = [
   { width: '8', height: '12', label: '8/12 Inch', price: 500 },
   { width: 'A4', height: 'A4', label: 'A4 Size', price: 650 },
   { width: '12', height: '18', label: '12/18 Inch', price: 999 },
   { width: '20', height: '30', label: '20/30 Inch', price: 3500 },
 ];
 
-const slugify = (s) =>
+export const slugify = (s) =>
   s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 // Last seed outcome, surfaced on /api/health so a deploy's result (and any

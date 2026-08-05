@@ -39,9 +39,11 @@ router.get('/categories', asyncHandler((_req, res) => {
         GROUP BY c.id
         ORDER BY c.sortOrder ASC, c.name ASC
       `).all();
-      // Categories alone don't refresh the snapshot — saveCatalogCache keeps the
-      // existing products and only replaces the category list.
-      saveCatalogCache({ categories: rows, products: cachedProducts() ?? [] });
+      // Empty products deliberately: saveCatalogCache keeps whatever it already
+      // holds and only replaces the category list. Passing cachedProducts()
+      // here would be wrong — it falls back to the BUNDLED catalogue, which
+      // would then be written into the snapshot as if it were live data.
+      saveCatalogCache({ categories: rows, products: [] });
       return res.json(rows);
     } catch (err) {
       // The database was ready a moment ago but this query failed: treat it as
@@ -65,8 +67,9 @@ router.get('/products', asyncHandler((req, res) => {
   if (dbUsable()) {
     try {
       const products = listProducts({ includeHidden: false, categorySlug });
-      // Only an unfiltered read is a complete snapshot worth storing.
-      if (!categorySlug) saveCatalogCache({ categories: cachedCategories() ?? [], products });
+      // Only an unfiltered read is a complete snapshot worth storing. Empty
+      // categories for the same reason as above — the existing ones are kept.
+      if (!categorySlug) saveCatalogCache({ categories: [], products });
       return res.json(products);
     } catch (err) {
       console.error('[catalog] products query failed, serving snapshot:', err.message);

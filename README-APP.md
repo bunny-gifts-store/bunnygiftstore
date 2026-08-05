@@ -147,6 +147,14 @@ The API now degrades instead of dying:
 customer can still browse products during an outage, and the storefront is never
 blank.
 
+**If there is no snapshot either**, the catalogue falls back to the built-in one
+in `seed.js` — the same data a fresh database is seeded with. This covers the
+case the snapshot cannot: a container that has NEVER reached the database, which
+is exactly what happens when a deploy lands during an outage. A real snapshot
+always wins, because it includes whatever the admin has changed since.
+`/api/health` reports which is in use via `catalogCache.source`
+(`snapshot` | `bundled`).
+
 What it deliberately does **not** do: cache anything a customer could act on
 incorrectly. Orders and logins fail outright when the database is down, because
 accepting an order that cannot be stored — or authenticating against a stale
@@ -170,6 +178,43 @@ npm run turso:check
 It makes one real connection and classifies the result — reachable, `502`
 unreachable, `401` token rejected, or `404` database gone — so the next action is
 unambiguous. It never prints the auth token.
+
+### Rebuilding the database after a total loss
+
+If the database has to be recreated (a Turso group that never comes back, an
+accidental delete), you do **not** need the Turso CLI — the app rebuilds most of
+it and one script does the rest.
+
+1. Turso dashboard → **Create Group** (a *new* group, if the old one is the thing
+   that failed) → **Create Database** → **Create Token**.
+2. Update `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` in the Render service's
+   Environment tab and save. Render restarts automatically.
+3. On boot the API creates the whole schema and seeds the 68 built-in products,
+   12 categories and a default admin. **That part is automatic.**
+4. Restore everything created since — registered customers, their orders,
+   admin-added products/categories, and the admin's real password:
+
+```bash
+cd server
+# credentials: server/.env.turso, or the process env
+npm run db:restore -- --dry-run     # report first, change nothing
+npm run db:restore
+```
+
+The source is `server/live-snapshot.db` by default (`--source` to override), and
+`--target <file>` restores into a local SQLite file instead, which is how to
+rehearse the whole thing safely.
+
+Safe to re-run: every insert is `INSERT OR IGNORE` on the table's natural unique
+column, original ids are preserved so foreign keys still line up, and the
+snapshot is opened read-only. The one deliberate exception is the admin password
+hash, which is copied over explicitly — the seed has already inserted a row with
+that username, so an ignored insert would otherwise leave the owner locked out
+with the default password.
+
+**Keep the snapshot fresh** — `npm run db:pull` regenerates it, and it is the
+only thing standing between an outage and losing your customers. `*.db` is
+gitignored, so real customer data can't be committed by accident.
 
 ### Diagnosing a slow or failed login
 

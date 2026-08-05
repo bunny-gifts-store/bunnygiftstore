@@ -9,6 +9,7 @@
     "seed:force": "node src/seed.js --force",
     "db:check": "node src/db-check.js",
     "db:pull": "node src/db-pull.js",
+    "db:restore": "node src/db-restore.js",
     "turso:check": "node src/turso-check.js"
   },
   "dependencies": {
