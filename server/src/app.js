@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
-import { persistence, persist } from './db.js';
+import { persistence, persist, dbStatus } from './db.js';
 import { seedStatus } from './seed.js';
 import { usingCloudinary } from './storage.js';
 import authRoutes from './routes/auth.routes.js';
@@ -12,10 +12,12 @@ import catalogRoutes from './routes/catalog.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 
-// NOTE: seeding is intentionally NOT run here. It is kicked off by server.js
-// AFTER the HTTP port is open, because the first-boot seed writes ~100 rows to
-// the remote Turso primary one round-trip at a time — running it before
-// app.listen() would delay the port opening and fail Render's health check.
+// NOTE: neither the schema nor the seed runs here. Both are kicked off by
+// server.js AFTER the HTTP port is open, because against the remote Turso
+// primary they are network round trips on a synchronous driver — running them
+// before app.listen() delays (or, if the primary is unreachable, permanently
+// prevents) the port opening, which fails the health check and leaves the API
+// answering nothing at all.
 
 const app = express();
 app.set('trust proxy', 1);
@@ -47,11 +49,24 @@ app.use((req, res, next) => {
 // Basic rate limiting on auth to slow brute-force on the admin login.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
 
+// Cheapest possible liveness endpoint: no database, no JSON building of any
+// consequence, never rate limited. This is what the keep-alive pinger and the
+// browser's warm-up call hit, so waking a sleeping instance costs one trivial
+// request and can't be blocked by a database problem.
+app.get('/api/ping', (_req, res) => res.type('text/plain').send('ok'));
+
+// Deliberately touches NO database. A health check that queries the database
+// reports "unhealthy" during a database outage and gets the whole service
+// restarted or marked down, which is precisely when you most need it to answer.
+// It reports the database's state as data instead.
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
   message: 'Bunny Gift Store API is live',
   // Surface persistence so a misconfigured (data-losing) deploy is visible.
   persistence: { mode: persistence.mode, durable: persistence.durable },
+  // Schema readiness: `ready:false` with an `error` means the API is up but the
+  // database is unreachable — the one thing worth knowing during an incident.
+  db: { ready: dbStatus.ready, error: dbStatus.error, attempts: dbStatus.attempts, ms: dbStatus.ms },
   // Whether product images are stored durably (Cloudinary) or on ephemeral disk.
   images: { durable: usingCloudinary, store: usingCloudinary ? 'cloudinary' : 'local-disk' },
   // Surface the last seed outcome (counts + first failure) so the state of the
@@ -59,12 +74,25 @@ app.get('/api/health', (_req, res) => res.json({
   seed: seedStatus,
 }));
 
-app.use('/api/auth', authLimiter, authRoutes);
+// Guard every data route until the schema exists. Without this, requests
+// arriving during a database outage each block the event loop on a synchronous
+// driver call that will not return, and the process stops answering anything at
+// all. A fast, explicit 503 keeps the API responsive and tells the client what
+// is actually wrong.
+const requireDb = (_req, res, next) => {
+  if (dbStatus.ready) return next();
+  res.set('Retry-After', '15').status(503).json({
+    error: 'The store is starting up. Please try again in a few seconds.',
+    detail: dbStatus.error || 'Database is initialising.',
+  });
+};
+
+app.use('/api/auth', authLimiter, requireDb, authRoutes);
 // Admin login lives under /api/admin/login but is defined in authRoutes.
-app.use('/api', authRoutes);        // exposes /api/admin/login, /api/admin/change-password
-app.use('/api', catalogRoutes);     // /api/categories, /api/products
-app.use('/api/orders', ordersRoutes);
-app.use('/api/admin', adminRoutes); // protected CRUD
+app.use('/api', requireDb, authRoutes);        // exposes /api/admin/login, /api/admin/change-password
+app.use('/api', requireDb, catalogRoutes);     // /api/categories, /api/products
+app.use('/api/orders', requireDb, ordersRoutes);
+app.use('/api/admin', requireDb, adminRoutes); // protected CRUD
 
 // Serve uploaded item images.
 app.use('/uploads', express.static(config.uploadsDir));

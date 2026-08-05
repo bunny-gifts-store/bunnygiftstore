@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import { db } from '../db.js';
 import { signUserToken, signAdminToken, requireAuth } from '../auth.js';
 import { asyncHandler } from '../helpers.js';
-import { recordAdminAction } from '../activity.js';
+import { recordAdminAction, recordAdminActionDeferred } from '../activity.js';
 
 const router = Router();
 
@@ -95,6 +96,104 @@ router.get('/me', requireAuth('user'), asyncHandler((req, res) => {
   res.json({ user });
 }));
 
+// ---- Password reset (customer) ----
+//
+// Two steps, both stateless: /reset/lookup confirms the account exists so the
+// UI can show the new-password fields, and /reset performs the change. The
+// second step re-resolves the identifier itself and never trusts the first, so
+// calling it directly gains an attacker nothing that step one didn't already
+// grant.
+//
+// SECURITY NOTE — this flow has NO out-of-band verification (no OTP, no email
+// link), because the store has no SMS or email channel to deliver one through.
+// Anyone who knows a registered mobile number or username can therefore set a
+// new password for that account. That is what the feature was specified to do;
+// if you later add an SMS/email provider, the correct hardening is to issue a
+// short-lived one-time code in /reset/lookup and require it in /reset.
+// Rate limiting below is a mitigation, not a substitute.
+
+// Tighter than the shared auth limiter: reset is the most abusable endpoint
+// here (it both discloses whether an account exists and changes a credential),
+// and no legitimate user needs many attempts.
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many password reset attempts. Please try again in a little while.' },
+});
+
+// Identical resolution to the login route: a customer may identify themselves
+// by mobile number or by username, matched case-insensitively and trimmed.
+// Parameters are always bound, never interpolated, so the input cannot alter
+// the query.
+function findUserByIdentifier(rawIdentifier) {
+  const identifier = String(rawIdentifier ?? '').trim();
+  if (!identifier) return null;
+  const asMobile = normalizeMobile(identifier);
+  return db
+    .prepare('SELECT * FROM users WHERE mobile = ? OR username = ? COLLATE NOCASE')
+    .get(asMobile, identifier);
+}
+
+const NO_ACCOUNT_ERROR = 'No account found with the entered Mobile Number or Username.';
+
+// POST /api/auth/reset/lookup  { identifier }  -- does this account exist?
+router.post('/reset/lookup', resetLimiter, asyncHandler((req, res) => {
+  const identifier = String(req.body.identifier || '').trim();
+  if (!identifier) {
+    return res.status(400).json({ error: 'Enter your mobile number or username.' });
+  }
+  if (!findUserByIdentifier(identifier)) {
+    return res.status(404).json({ error: NO_ACCOUNT_ERROR });
+  }
+  // Deliberately returns nothing about the account — not the name, not the
+  // masked mobile, not the id. The client only needs to know it may proceed.
+  res.json({ ok: true });
+}));
+
+// POST /api/auth/reset  { identifier, password, confirmPassword }
+router.post('/reset', resetLimiter, asyncHandler((req, res) => {
+  const identifier = String(req.body.identifier || '').trim();
+  const password = String(req.body.password || '');
+  // Confirmation is validated in the browser too; re-checked here because
+  // client-side validation is a convenience, never a control.
+  const confirmPassword = String(req.body.confirmPassword ?? password);
+
+  if (!identifier) {
+    return res.status(400).json({ error: 'Enter your mobile number or username.' });
+  }
+  if (!password) {
+    return res.status(400).json({ error: 'Password cannot be empty.' });
+  }
+  // Same rule the registration route enforces — one constant, one behaviour.
+  if (password.length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD} characters.` });
+  }
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match.' });
+  }
+
+  const user = findUserByIdentifier(identifier);
+  if (!user) {
+    return res.status(404).json({ error: NO_ACCOUNT_ERROR });
+  }
+
+  // ONLY the password column is touched. The row's id is preserved, so orders
+  // (which reference users.id) and every other detail stay attached to this
+  // same account — a reset must never look like a new registration.
+  const passwordHash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, user.id);
+
+  // Security-relevant event: recorded in the server log, without the password.
+  console.log(`[auth] Password reset completed for user #${user.id}.`);
+
+  res.json({
+    ok: true,
+    message: 'Password updated successfully. Please login with your new password.',
+  });
+}));
+
 // GET /api/auth/exists?mobile=  -> whether a mobile is already registered (signup UX)
 router.get('/exists', asyncHandler((req, res) => {
   const mobile = normalizeMobile(req.query.mobile);
@@ -116,9 +215,15 @@ router.post('/admin/login', asyncHandler((req, res) => {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
   const token = signAdminToken(admin);
-  // req.auth isn't set on the login route itself — pass the admin explicitly.
-  recordAdminAction({ sub: admin.id, username: admin.username }, { action: 'admin.login', entity: 'admin', entityId: admin.id });
+  // Reply first, then audit. The audit row is a second database write and, on
+  // Turso, a second network round trip — nothing in the response needs it, so
+  // it must not sit between the admin and their dashboard.
   res.json({ token, admin: { id: admin.id, username: admin.username } });
+  // req.auth isn't set on the login route itself — pass the admin explicitly.
+  recordAdminActionDeferred(
+    { sub: admin.id, username: admin.username },
+    { action: 'admin.login', entity: 'admin', entityId: admin.id }
+  );
 }));
 
 // POST /api/admin/change-password  { currentPassword, newPassword }  (admin only)

@@ -22,7 +22,11 @@ const BUILD = '__SW_BUILD__';
 const SHELL_CACHE = `bgs-shell-${BUILD}`;
 const ASSET_CACHE = 'bgs-assets-v1';
 const IMAGE_CACHE = 'bgs-images-v1';
-const CDN_CACHE = 'bgs-cdn-v1';
+// v2: v1 could hold an opaque Bootstrap copy that breaks the stylesheet for
+// CORS requests (see usableFromCache). Renaming drops that poisoned cache on
+// activate, so existing installs heal themselves instead of needing the user to
+// clear site data by hand.
+const CDN_CACHE = 'bgs-cdn-v2';
 
 const CURRENT_CACHES = [SHELL_CACHE, ASSET_CACHE, IMAGE_CACHE, CDN_CACHE];
 
@@ -71,6 +75,24 @@ function put(cacheName, request, response) {
     });
 }
 
+/**
+ * Whether a cached response can legally answer this request.
+ *
+ * An opaque response is what a `no-cors` fetch returns: a sealed body the page
+ * is not allowed to read. Handing one back for a request that is NOT no-cors
+ * fails the fetch outright — the browser reports "an opaque response was used
+ * for a request whose type is not no-cors" and the resource never loads.
+ *
+ * That is exactly what happened to Bootstrap: index.html requests it with
+ * `integrity` + `crossorigin="anonymous"`, which makes it a CORS request, so a
+ * single opaque copy landing in the CDN cache broke the site's stylesheet on
+ * every subsequent visit until the cache was cleared by hand.
+ */
+function usableFromCache(request, response) {
+  if (!response) return false;
+  return response.type !== 'opaque' || request.mode === 'no-cors';
+}
+
 /** Trim a cache back to `max` entries, oldest-inserted first. */
 async function trim(cacheName, max) {
   const cache = await caches.open(cacheName);
@@ -82,7 +104,7 @@ async function trim(cacheName, max) {
 /** Cache-first: ideal for hashed/immutable assets and images. */
 async function cacheFirst(request, cacheName, max) {
   const cached = await caches.match(request, { cacheName });
-  if (cached) return cached;
+  if (usableFromCache(request, cached)) return cached;
   const response = await fetch(request);
   await put(cacheName, request, response);
   if (max) trim(cacheName, max);
@@ -91,7 +113,8 @@ async function cacheFirst(request, cacheName, max) {
 
 /** Stale-while-revalidate: instant paint, refreshed in the background. */
 async function staleWhileRevalidate(request, cacheName, max) {
-  const cached = await caches.match(request, { cacheName });
+  const found = await caches.match(request, { cacheName });
+  const cached = usableFromCache(request, found) ? found : null;
   const network = fetch(request)
     .then(async (response) => {
       await put(cacheName, request, response);

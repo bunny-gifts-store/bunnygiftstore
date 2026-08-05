@@ -2097,3 +2097,92 @@ mark.search-hit {
   .welcome-subtitle,
   .welcome-cta { animation: none; }
 }
+
+/* ============================================================
+   Forgot / reset password (user login screen)
+   ============================================================ */
+
+/* "Forgot your password? Reset now" and "Don't have an account? Sign Up Here".
+   Both sit directly under an error alert, so they need to read as the offered
+   way out of that error rather than as more error text. */
+.forgot-password-prompt {
+  margin: -0.35rem 0 1rem;
+  text-align: center;
+  font-size: 0.92rem;
+  color: #6c757d;
+}
+
+/* A real <button> (not an <a href="#">): this performs an in-page action, so
+   it must not look like a navigation target to a screen reader or put a junk
+   entry in the browser's history. Styled back down to look like a link. */
+.link-reset {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--bg-secondary-color);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+.link-reset:hover,
+.link-reset:focus-visible {
+  color: var(--bg-accent-color);
+  text-decoration-thickness: 2px;
+}
+.link-reset:focus-visible {
+  outline: 2px solid var(--bg-light-purple);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* Reminds the user which account they are about to change — the reset form
+   otherwise gives no clue once the identifier field is behind them. */
+.reset-account-chip {
+  background: rgba(199, 125, 255, 0.12);
+  border: 1px solid rgba(199, 125, 255, 0.35);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  color: #1a1a2e;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* Per-field validation messages. Not Bootstrap's .invalid-feedback: that only
+   appears via a sibling .is-invalid selector, which cannot reach through the
+   PasswordInput wrapper. These are rendered conditionally instead. */
+.field-error {
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  color: #dc3545;
+}
+.field-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.84rem;
+  color: #6c757d;
+}
+.field-invalid {
+  border-color: #dc3545;
+}
+.field-invalid:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.2);
+}
+
+/* A disabled Update Password button must still read as "not yet", not as
+   "broken" — keep it legible rather than washing it out completely. */
+.user-login-card .btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* The card already fluid-fills to max-width: 420px; on the smallest screens
+   reclaim the padding so the fields keep their tap target size. */
+@media (max-width: 380px) {
+  .user-login-card { padding: 1.75rem 1.25rem; }
+  .reset-account-chip { font-size: 0.85rem; }
+}

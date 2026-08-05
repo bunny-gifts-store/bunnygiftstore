@@ -92,6 +92,53 @@ then the order is saved to the DB and an order email is opened to the store owne
 `PORT`, `JWT_SECRET` (set a strong secret in prod), `ADMIN_USERNAME`,
 `ADMIN_PASSWORD`, `CORS_ORIGINS`, `DB_PATH`, `UPLOADS_DIR`.
 
+## Login speed (and why it used to hang)
+
+Slow or stuck logins on the live site have two distinct causes. Both are fixed;
+this section exists so the fix isn't accidentally undone.
+
+**1. The free instance sleeps.** Render's free tier spins the API down after
+~15 minutes with no traffic, and the next request has to boot a container from
+cold — 50s+. That request is usually someone pressing *Login*, so the button sits
+on "Signing in…". The fix is `.github/workflows/keepalive.yml`, which pings
+`/api/ping` every 10 minutes so the idle timer never expires. **If logins get
+slow again, check that workflow first** — GitHub disables scheduled workflows in
+repos with no activity for 60 days, which silently brings the problem back.
+
+**2. Boot could block forever.** The schema and its migrations used to run at
+*module import time*, i.e. before `app.listen()`. Against Turso every one of
+those statements is a network round trip on a synchronous driver, so a slow or
+unreachable primary meant the HTTP port never opened at all: the health check got
+no response, the API answered nothing, and there was no error anywhere to
+diagnose. Now `server.js` opens the port first and calls `initSchema()`
+afterwards (via `libsql/promise`, so it can't block the event loop), retrying
+with a backoff if the database is down.
+
+The rules that keep this working:
+
+- **Nothing that touches the database may run at import time.** No top-level
+  `db.prepare(...)`, no schema work, no pragmas against a remote primary. Prepare
+  statements lazily instead (see `activity.js`).
+- **`/api/health` and `/api/ping` must never query the database.** A health check
+  that needs the database reports "down" during a database outage — exactly when
+  you need it to answer. `/api/health` reports the database's state as *data*
+  (`db.ready`, `db.error`) instead.
+- **Data routes are gated on `dbStatus.ready`** and return a fast `503` when the
+  schema isn't up, rather than blocking on a driver call that may never return.
+
+### Diagnosing a slow or failed login
+
+```bash
+curl https://bunnygiftstore-api.onrender.com/api/health
+```
+
+| What you see | What it means |
+|---|---|
+| Fast JSON, `db.ready: true` | API is healthy — the problem is elsewhere (client, credentials). |
+| Slow (30s+) then JSON | The instance was asleep. Check the keep-alive workflow is enabled. |
+| JSON with `db.ready: false` + `db.error` | API is up, the **database** is unreachable. `db.error` names the cause (bad token, host not found, DB deleted/suspended). Check `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` in Render, and that the Turso database still exists. |
+| No response at all | The service itself is not running — check the Render dashboard (deploy failed, suspended, or free instance-hours exhausted). |
+
 ### Which database am I looking at?
 
 There are **two separate databases**, and this trips people up:

@@ -33,19 +33,61 @@ api.interceptors.response.use(
 
 // Normalise error messages coming back from the API.
 export function apiError(err, fallback = 'Something went wrong. Please try again.') {
+  // A timeout has no response body, and axios's own text ("timeout of 90000ms
+  // exceeded") means nothing to a shopper.
+  if (err?.code === 'ECONNABORTED' || err?.code === 'ETIMEDOUT') {
+    return 'The server is taking too long to respond. Please check your connection and try again.';
+  }
+  // No response at all = the API is unreachable (offline, or the host is down).
+  if (err?.request && !err?.response) {
+    return 'Could not reach the store server. Please check your connection and try again.';
+  }
   return err?.response?.data?.error || err?.message || fallback;
 }
 
-// Wake the API before the user needs it. The production API runs on a host that
-// spins down when idle, so the first request has a long cold-start delay (this
-// is why login feels slow live but is instant locally). Firing this the moment
-// the app loads lets the server boot while the user reads the login screen, so
-// by the time they click Login it's usually already awake. Fire-and-forget.
-let warmedUp = false;
+// Sign-in and registration must never hang forever. Axios has NO default
+// timeout, so without this a request to a server that accepts the connection but
+// never replies leaves the button stuck on "Signing in…" indefinitely with no
+// error — which is exactly how a sleeping/hung API presents to the user.
+// The window is generous because it may legitimately include a cold start.
+export const AUTH_TIMEOUT = 90000;
+
+// ---------------------------------------------------------------------------
+// Warm-up.
+//
+// The production API runs on a host that spins down when idle, so the first
+// request after an idle period pays a 50s+ cold start. Firing this the moment
+// the app loads lets the server boot while the user is still typing, so by the
+// time they press Login it is usually already awake.
+//
+// It hits /api/ping (no database, no auth, no rate limit) and keeps retrying, so
+// one failed attempt doesn't leave the app cold for the whole session. Callers
+// can await `warmUpApi()` to know whether the API is actually reachable yet.
+// ---------------------------------------------------------------------------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let warmPromise = null;
+export let apiIsWarm = false;
+
 export function warmUpApi() {
-  if (warmedUp) return;
-  warmedUp = true;
-  api.get('/health', { timeout: 60000 }).catch(() => { warmedUp = false; });
+  if (warmPromise) return warmPromise;
+  warmPromise = (async () => {
+    // Delays between attempts; a cold start is ~1 min, so keep trying past it.
+    for (const delay of [0, 3000, 8000, 15000, 30000]) {
+      if (delay) await sleep(delay);
+      try {
+        await api.get('/ping', { timeout: 120000 });
+        apiIsWarm = true;
+        return true;
+      } catch {
+        /* keep trying */
+      }
+    }
+    // Allow a later call (e.g. on form submit) to start a fresh round.
+    warmPromise = null;
+    return false;
+  })();
+  return warmPromise;
 }
 
 // ---- Public catalog ----
@@ -57,9 +99,18 @@ export const fetchProducts = (category) =>
 export const checkMobileExists = (mobile) =>
   api.get('/auth/exists', { params: { mobile } }).then((r) => r.data.exists);
 // Register a first-time user: { mobile, username, password }.
-export const registerUser = (payload) => api.post('/auth/register', payload).then((r) => r.data);
+export const registerUser = (payload) =>
+  api.post('/auth/register', payload, { timeout: AUTH_TIMEOUT }).then((r) => r.data);
 // Log in a returning user: { identifier (mobile or username), password }.
-export const loginUser = (payload) => api.post('/auth/login', payload).then((r) => r.data);
+export const loginUser = (payload) =>
+  api.post('/auth/login', payload, { timeout: AUTH_TIMEOUT }).then((r) => r.data);
+// Password reset, step 1: confirm the account exists before asking for a new
+// password. Rejects with a 404 when there is no such mobile/username.
+export const lookupResetAccount = (identifier) =>
+  api.post('/auth/reset/lookup', { identifier }, { timeout: AUTH_TIMEOUT }).then((r) => r.data);
+// Password reset, step 2: { identifier, password, confirmPassword }.
+export const resetPassword = (payload) =>
+  api.post('/auth/reset', payload, { timeout: AUTH_TIMEOUT }).then((r) => r.data);
 
 // ---- Orders ----
 export const placeOrder = (payload) => api.post('/orders', payload).then((r) => r.data);
@@ -70,7 +121,8 @@ export const cancelMyOrder = (id, reason) =>
   api.post(`/orders/${id}/cancel`, { reason }).then((r) => r.data);
 
 // ---- Admin ----
-export const adminLogin = (payload) => api.post('/admin/login', payload).then((r) => r.data);
+export const adminLogin = (payload) =>
+  api.post('/admin/login', payload, { timeout: AUTH_TIMEOUT }).then((r) => r.data);
 export const adminChangePassword = (payload) =>
   api.post('/admin/change-password', payload).then((r) => r.data);
 export const adminFetchProducts = () => api.get('/admin/products').then((r) => r.data);

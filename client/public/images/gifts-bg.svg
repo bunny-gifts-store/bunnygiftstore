@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Decorative gift pattern background">
+  <!--
+    Page background referenced by css/style.css (body + .hero). It is drawn at
+    `cover` behind the whole storefront, and the hero additionally lays a dark
+    purple gradient over it, so everything here stays low-contrast and quiet —
+    it must never compete with the content sitting on top of it.
+
+    Theme colours: #1a1a2e (dark), #c77dff (light purple), #dc81a2 (pink).
+  -->
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#faf5ff"/>
+      <stop offset="55%" stop-color="#f3e8ff"/>
+      <stop offset="100%" stop-color="#fce7f3"/>
+    </linearGradient>
+
+    <radialGradient id="glowPurple" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c77dff" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#c77dff" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="glowPink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#dc81a2" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#dc81a2" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- One gift box, reused at several sizes and angles. -->
+    <g id="gift">
+      <rect x="-26" y="-16" width="52" height="40" rx="5" fill="#c77dff"/>
+      <rect x="-30" y="-24" width="60" height="12" rx="4" fill="#dc81a2"/>
+      <rect x="-4" y="-24" width="8" height="48" fill="#dc81a2"/>
+      <path d="M0 -24c-8-12-22-10-22-2 0 5 6 8 22 2z" fill="#dc81a2"/>
+      <path d="M0 -24c8-12 22-10 22-2 0 5-6 8-22 2z" fill="#dc81a2"/>
+    </g>
+
+    <!-- A small four-point sparkle. -->
+    <path id="sparkle" d="M0-14C2-5 5-2 14 0 5 2 2 5 0 14-2 5-5 2-14 0-5-2-2-5 0-14z" fill="#c77dff"/>
+
+    <path id="heart" d="M0 12C-14 3-20-4-20-11c0-6 5-10 10-10 4 0 8 3 10 6 2-3 6-6 10-6 5 0 10 4 10 10 0 7-6 14-20 23z" fill="#dc81a2"/>
+
+    <!-- Repeating confetti dots, kept very faint. -->
+    <pattern id="confetti" width="120" height="120" patternUnits="userSpaceOnUse">
+      <circle cx="18" cy="24" r="3" fill="#c77dff" opacity="0.16"/>
+      <circle cx="86" cy="58" r="2.5" fill="#dc81a2" opacity="0.16"/>
+      <circle cx="46" cy="96" r="2" fill="#c77dff" opacity="0.13"/>
+      <circle cx="108" cy="12" r="2" fill="#dc81a2" opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#wash)"/>
+  <rect width="1440" height="900" fill="url(#confetti)"/>
+
+  <!-- Soft colour pools for depth. -->
+  <circle cx="180" cy="140" r="340" fill="url(#glowPurple)"/>
+  <circle cx="1290" cy="760" r="380" fill="url(#glowPink)"/>
+  <circle cx="1180" cy="120" r="240" fill="url(#glowPurple)"/>
+  <circle cx="300" cy="820" r="260" fill="url(#glowPink)"/>
+
+  <!-- Scattered gifts. Low opacity so text stays readable over them. -->
+  <g opacity="0.20">
+    <use href="#gift" transform="translate(160 250) rotate(-12) scale(1.5)"/>
+    <use href="#gift" transform="translate(1265 245) rotate(14) scale(1.25)"/>
+    <use href="#gift" transform="translate(560 130) rotate(8) scale(0.95)"/>
+    <use href="#gift" transform="translate(940 690) rotate(-9) scale(1.35)"/>
+    <use href="#gift" transform="translate(330 640) rotate(16) scale(1.05)"/>
+    <use href="#gift" transform="translate(1140 460) rotate(-5) scale(0.85)"/>
+    <use href="#gift" transform="translate(700 810) rotate(11) scale(0.8)"/>
+  </g>
+
+  <g opacity="0.16">
+    <use href="#heart" transform="translate(430 400) scale(1.1)"/>
+    <use href="#heart" transform="translate(1050 300) scale(0.8)"/>
+    <use href="#heart" transform="translate(820 520) scale(0.65)"/>
+    <use href="#heart" transform="translate(220 480) scale(0.7)"/>
+  </g>
+
+  <g opacity="0.30">
+    <use href="#sparkle" transform="translate(760 210) scale(1.1)"/>
+    <use href="#sparkle" transform="translate(1010 600) scale(0.8)"/>
+    <use href="#sparkle" transform="translate(410 760) scale(0.9)"/>
+    <use href="#sparkle" transform="translate(1330 380) scale(0.7)"/>
+    <use href="#sparkle" transform="translate(120 620) scale(0.6)"/>
+    <use href="#sparkle" transform="translate(640 460) scale(0.55)"/>
+  </g>
+</svg>
