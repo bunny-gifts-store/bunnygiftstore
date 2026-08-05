@@ -1,6 +1,6 @@
 import app from './src/app.js';
 import { config } from './src/config.js';
-import { persist, initSchema, dbStatus } from './src/db.js';
+import { persist, initSchema, dbStatus, scheduleRecovery, setDbReadyHook } from './src/db.js';
 import { seedDatabase } from './src/seed.js';
 import { loadCatalogCache } from './src/catalogCache.js';
 
@@ -18,26 +18,10 @@ const server = app.listen(config.port, () => {
   bootstrap();
 });
 
-// Everything that needs the database happens here, after the port is open.
-async function bootstrap() {
-  // Load the last known-good catalogue FIRST, so that if the database turns out
-  // to be unreachable the storefront is already browsable rather than blank.
-  loadCatalogCache();
-
-  // Schema + migrations. Resolves false (rather than throwing) if the database
-  // is unreachable, so the API stays up and reports why.
-  const ready = await initSchema();
-  if (!ready) {
-    console.error('[boot] Database is not ready — API is serving, but data routes will return 503.');
-    console.error('[boot] Cause:', dbStatus.error);
-    scheduleRetry();
-    return;
-  }
-
-  // Seed only once the schema exists. On the very first boot against a fresh
-  // Turso database this writes ~100 rows to the remote primary (one network
-  // round-trip each). Seeding is idempotent and skips entirely once data
-  // exists, so later boots do almost nothing here.
+// Seeding runs on first boot AND after any recovery — a database that comes
+// back empty (or is a freshly created replacement) needs its catalogue again.
+// Idempotent, so it costs almost nothing when there is already data.
+function seedSafely() {
   try {
     seedDatabase();
   } catch (err) {
@@ -45,26 +29,27 @@ async function bootstrap() {
   }
 }
 
-// A database that is unreachable at boot is usually a transient outage (or a
-// primary that is itself waking up). Keep retrying with a backoff instead of
-// requiring a manual redeploy to recover.
-let retryDelay = 5000;
-function scheduleRetry() {
-  const delay = retryDelay;
-  retryDelay = Math.min(retryDelay * 2, 60000);
-  console.log(`[boot] Retrying database init in ${Math.round(delay / 1000)}s…`);
-  setTimeout(async () => {
-    if (await initSchema()) {
-      console.log('[boot] Database recovered.');
-      try {
-        seedDatabase();
-      } catch (err) {
-        console.error('[seed] Seeding failed (server is still running):', err);
-      }
-    } else {
-      scheduleRetry();
-    }
-  }, delay).unref();
+// Everything that needs the database happens here, after the port is open.
+async function bootstrap() {
+  // Load the last known-good catalogue FIRST, so that if the database turns out
+  // to be unreachable the storefront is already browsable rather than blank.
+  loadCatalogCache();
+
+  // Recovery lives in db.js so that any code discovering a broken connection
+  // can re-arm it, not just this boot path. Tell it what to do once the
+  // database is usable again.
+  setDbReadyHook(seedSafely);
+
+  // Schema + migrations. Resolves false (rather than throwing) if the database
+  // is unreachable, so the API stays up and reports why.
+  if (!(await initSchema())) {
+    console.error('[boot] Database is not ready — API is serving, but data routes will return 503.');
+    console.error('[boot] Cause:', dbStatus.error);
+    scheduleRecovery();
+    return;
+  }
+
+  seedSafely();
 }
 
 // Leave the database file complete and self-contained on shutdown.

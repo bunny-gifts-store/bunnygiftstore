@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db, dbStatus } from '../db.js';
+import { db, dbStatus, markDbUnavailable } from '../db.js';
 import { listProducts, getProductById, asyncHandler } from '../helpers.js';
 import {
   saveCatalogCache,
@@ -47,11 +47,11 @@ router.get('/categories', asyncHandler((_req, res) => {
       return res.json(rows);
     } catch (err) {
       // The database was ready a moment ago but this query failed: treat it as
-      // an outage rather than a 500, and mark the connection as not ready so
-      // the retry loop reconnects.
+      // an outage rather than a 500. markDbUnavailable also (re)starts the
+      // recovery loop, so a database that dies mid-life reconnects on its own
+      // instead of leaving the API degraded until someone restarts it.
       console.error('[catalog] categories query failed, serving snapshot:', err.message);
-      dbStatus.ready = false;
-      dbStatus.error = err.message;
+      markDbUnavailable(err.message);
     }
   }
 
@@ -73,8 +73,7 @@ router.get('/products', asyncHandler((req, res) => {
       return res.json(products);
     } catch (err) {
       console.error('[catalog] products query failed, serving snapshot:', err.message);
-      dbStatus.ready = false;
-      dbStatus.error = err.message;
+      markDbUnavailable(err.message);
     }
   }
 
@@ -94,8 +93,7 @@ router.get('/products/:id', asyncHandler((req, res) => {
       return res.json(product);
     } catch (err) {
       console.error('[catalog] product query failed, serving snapshot:', err.message);
-      dbStatus.ready = false;
-      dbStatus.error = err.message;
+      markDbUnavailable(err.message);
     }
   }
 

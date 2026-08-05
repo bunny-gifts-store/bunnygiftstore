@@ -310,6 +310,65 @@ export async function initSchema() {
 }
 
 // ---------------------------------------------------------------------------
+// Recovery.
+//
+// A remote database can fail at any time, not just at boot — which is exactly
+// what a flapping provider looks like. Recovery therefore lives here rather
+// than in the boot path, so ANY code that discovers a broken connection can
+// re-arm it by calling markDbUnavailable(). Previously only a failed *initial*
+// connection scheduled retries: a database that died after a successful boot
+// left the API degraded until someone restarted it by hand.
+// ---------------------------------------------------------------------------
+const RECOVERY_MIN_MS = 5_000;
+const RECOVERY_MAX_MS = 60_000;
+
+let recoveryTimer = null;
+let recoveryDelay = RECOVERY_MIN_MS;
+let onReady = null;
+
+/** Register work to run whenever the database becomes usable (e.g. seeding). */
+export function setDbReadyHook(fn) {
+  onReady = fn;
+}
+
+/**
+ * Report that the connection is broken and make sure recovery is running.
+ * Safe to call repeatedly and from anywhere — it de-duplicates.
+ */
+export function markDbUnavailable(message) {
+  if (dbStatus.ready) console.error('[db] Connection lost:', message);
+  dbStatus.ready = false;
+  dbStatus.error = message;
+  scheduleRecovery();
+}
+
+/** Keep retrying initSchema() with a backoff until the database answers. */
+export function scheduleRecovery() {
+  if (recoveryTimer || dbStatus.ready) return;
+
+  const delay = recoveryDelay;
+  recoveryDelay = Math.min(recoveryDelay * 2, RECOVERY_MAX_MS);
+  console.log(`[db] Retrying database connection in ${Math.round(delay / 1000)}s…`);
+
+  recoveryTimer = setTimeout(async () => {
+    recoveryTimer = null;
+    if (await initSchema()) {
+      recoveryDelay = RECOVERY_MIN_MS; // reset, so a later failure retries fast again
+      console.log('[db] Database recovered.');
+      try {
+        onReady?.();
+      } catch (err) {
+        console.error('[db] Post-recovery hook failed:', err.message);
+      }
+    } else {
+      scheduleRecovery();
+    }
+  }, delay);
+  // Don't hold the process open for a retry; the HTTP server keeps it alive.
+  recoveryTimer.unref?.();
+}
+
+// ---------------------------------------------------------------------------
 // Persistence self-check.
 //
 // Data loss ("products/users disappear after some time") happens when the API
