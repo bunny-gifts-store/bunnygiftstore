@@ -25,17 +25,20 @@ export function mapProduct(row) {
   };
 }
 
+// Column aliases are quoted so Postgres preserves their camel case — unquoted
+// identifiers are folded to lower case, which would hand mapProduct() a
+// `categoryname` key it doesn't read.
 const PRODUCT_SELECT = `
-  SELECT p.*, c.name AS categoryName, c.slug AS categorySlug
+  SELECT p.*, c.name AS "categoryName", c.slug AS "categorySlug"
   FROM products p
-  LEFT JOIN categories c ON c.id = p.categoryId
+  LEFT JOIN categories c ON c.id = p."categoryId"
 `;
 
-export function getProductById(id) {
-  return mapProduct(db.prepare(`${PRODUCT_SELECT} WHERE p.id = ?`).get(id));
+export async function getProductById(id) {
+  return mapProduct(await db.prepare(`${PRODUCT_SELECT} WHERE p.id = ?`).get(id));
 }
 
-export function listProducts({ includeHidden = false, categorySlug = null } = {}) {
+export async function listProducts({ includeHidden = false, categorySlug = null } = {}) {
   const clauses = [];
   const params = [];
   if (!includeHidden) {
@@ -46,8 +49,8 @@ export function listProducts({ includeHidden = false, categorySlug = null } = {}
     params.push(categorySlug);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-  const rows = db
-    .prepare(`${PRODUCT_SELECT} ${where} ORDER BY p.sortOrder ASC, p.id ASC`)
+  const rows = await db
+    .prepare(`${PRODUCT_SELECT} ${where} ORDER BY p."sortOrder" ASC, p.id ASC`)
     .all(...params);
   return rows.map(mapProduct);
 }

@@ -1,4 +1,4 @@
-# Render Blueprint — Bunny Gift Store API (Node/Express + SQLite)
+# Render Blueprint — Bunny Gift Store API (Node/Express + PostgreSQL)
 # One-click: https://render.com/deploy?repo=https://github.com/bunny-gifts-store/bunnygiftstore
 # Or: Render Dashboard -> New + -> Blueprint -> connect this repo.
 
@@ -23,13 +23,11 @@ services:
         sync: false                # you enter this in the Render UI on deploy
       - key: CORS_ORIGINS
         value: https://bunnygiftsstore.com,https://www.bunnygiftsstore.com
-      # DATA PERSISTENCE via Turso (free, survives restarts) — see note below.
-      # The DB runs as a libSQL embedded replica synced to a remote Turso primary,
-      # so users / orders / products are NOT wiped when the free instance sleeps.
-      - key: TURSO_DATABASE_URL
-        sync: false                # paste your Turso DB URL (libsql://...) in the Render UI
-      - key: TURSO_AUTH_TOKEN
-        sync: false                # paste your Turso auth token in the Render UI
+      # DATA PERSISTENCE via PostgreSQL (survives restarts) — see note below.
+      # The database is a separate managed service, so users / orders / products
+      # are NOT wiped when this free instance sleeps or redeploys.
+      - key: DATABASE_URL
+        sync: false                # paste your Postgres connection string in the Render UI
       # DURABLE PRODUCT IMAGES via Cloudinary (free) — without this, admin-uploaded
       # / camera-captured images live on the ephemeral disk and vanish on restart.
       # One value: cloudinary://<api_key>:<api_secret>@<cloud_name>  (Cloudinary
@@ -39,23 +37,27 @@ services:
 
 # ---------------------------------------------------------------------------
 # DATA PERSISTENCE (do this before taking real orders):
-# The free tier has an EPHEMERAL filesystem — a plain local SQLite DB resets
-# whenever the service restarts or sleeps, wiping users/orders overnight.
+# The free tier has an EPHEMERAL filesystem — anything written inside the
+# container is wiped whenever the service restarts or sleeps. The database
+# therefore has to live OUTSIDE it, or users/orders disappear overnight.
 #
-# FIX (free): use Turso (https://turso.tech) — a hosted, SQLite-compatible DB.
-# The server uses it automatically once TURSO_DATABASE_URL + TURSO_AUTH_TOKEN
-# are set (above). One-time setup with the Turso CLI:
+# FIX: a managed PostgreSQL database. The server uses it automatically once
+# DATABASE_URL is set (above), and REFUSES to start in production without it —
+# so a misconfigured deploy fails loudly instead of silently losing orders.
 #
-#   turso auth signup
-#   turso db create bunnygiftstore
-#   turso db show bunnygiftstore --url          # -> TURSO_DATABASE_URL
-#   turso db tokens create bunnygiftstore       # -> TURSO_AUTH_TOKEN
+# Free options:
+#   Neon      https://neon.tech      -> Dashboard -> Connection string
+#   Supabase  https://supabase.com   -> Project Settings -> Database -> URI
+#   Render    Dashboard -> New + -> Postgres -> Internal Database URL
 #
-# Paste both values into the Render service's Environment settings, then deploy.
-# The first boot creates the schema + seeds products in Turso; every later boot
-# re-syncs from Turso, so data persists forever.
+# The value looks like:
+#   postgresql://user:password@host/database
+#
+# Paste it into the Render service's Environment settings, then deploy. The
+# first boot creates the schema and seeds the catalogue; every later boot finds
+# the data already there, so it persists across restarts and redeploys.
 #
 # NOTE: uploaded item images (server/uploads) still live on the ephemeral disk.
 # Admin-uploaded product images will reset on restart unless you also move them
-# to durable storage (e.g. a paid Render disk, or an object store like S3/R2).
+# to durable storage — set CLOUDINARY_URL above, or use an object store.
 # ---------------------------------------------------------------------------

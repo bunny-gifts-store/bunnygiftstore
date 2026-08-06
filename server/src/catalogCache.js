@@ -7,9 +7,8 @@ import { CATEGORIES, PRODUCTS, FRAME_SIZE_OPTIONS, slugify } from './seed.js';
 // Last known-good catalogue.
 //
 // The store runs on free hosting where the database is a separate service that
-// can become unreachable (see the Turso 502 outage documented in README-APP.md).
-// Without this, such an outage takes the whole storefront down: no products, no
-// categories, nothing to look at.
+// can become unreachable — and has been. Without this, such an outage takes the
+// whole storefront down: no products, no categories, nothing to look at.
 //
 // So every successful catalogue read is remembered — in memory, and on disk so
 // it survives a process restart. When the database is unavailable, the
@@ -84,8 +83,8 @@ export function saveCatalogCache({ categories, products }) {
 //
 // The disk snapshot only exists once a catalogue read has succeeded, so it is
 // empty on a container that has NEVER reached the database — exactly the case
-// during the 5 Aug 2026 outage, where a redeploy landed while Turso was down
-// and the storefront was blank despite the caching above.
+// during the 5 Aug 2026 outage, where a redeploy landed while the database was
+// down and the storefront was blank despite the caching above.
 //
 // The built-in catalogue in seed.js is the same data a fresh database is seeded
 // with, so serving it means shoppers always see a store. It is only used when

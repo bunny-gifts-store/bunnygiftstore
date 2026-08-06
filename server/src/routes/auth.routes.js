@@ -18,7 +18,7 @@ const publicUser = (u) => ({ id: u.id, mobile: u.mobile, username: u.username })
 // IN with (mobile OR username) + password. A password is always required.
 
 // POST /api/auth/register  { mobile, username, password }
-router.post('/register', asyncHandler((req, res) => {
+router.post('/register', asyncHandler(async (req, res) => {
   const mobile = normalizeMobile(req.body.mobile);
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
@@ -35,13 +35,16 @@ router.post('/register', asyncHandler((req, res) => {
 
   // Usernames must be unique so they can be used to log in. Allow the same name
   // only if it already belongs to this same mobile (a legacy account being set up).
-  const nameOwner = db.prepare('SELECT id, mobile FROM users WHERE username = ? COLLATE NOCASE').get(username);
+  // LOWER(...) on both sides is the Postgres equivalent of SQLite's COLLATE
+  // NOCASE — the comparison stays case-insensitive, so "Ravi" and "ravi" are
+  // still the same taken name.
+  const nameOwner = await db.prepare('SELECT id, mobile FROM users WHERE LOWER(username) = LOWER(?)').get(username);
   if (nameOwner && nameOwner.mobile !== mobile) {
     return res.status(409).json({ error: 'This name is already taken. Please choose another.' });
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  const existing = db.prepare('SELECT * FROM users WHERE mobile = ?').get(mobile);
+  const existing = await db.prepare('SELECT * FROM users WHERE mobile = ?').get(mobile);
   let user;
   if (existing) {
     // A password already set means the account exists — send them to login.
@@ -49,20 +52,20 @@ router.post('/register', asyncHandler((req, res) => {
       return res.status(409).json({ error: 'An account with this mobile number already exists. Please log in.' });
     }
     // Legacy passwordless account: claim it by setting the name + password.
-    db.prepare('UPDATE users SET username = ?, passwordHash = ? WHERE id = ?')
+    await db.prepare('UPDATE users SET username = ?, "passwordHash" = ? WHERE id = ?')
       .run(username, passwordHash, existing.id);
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+    user = await db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
   } else {
-    const info = db.prepare('INSERT INTO users (mobile, username, passwordHash) VALUES (?, ?, ?)')
+    const info = await db.prepare('INSERT INTO users (mobile, username, "passwordHash") VALUES (?, ?, ?)')
       .run(mobile, username, passwordHash);
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+    user = await db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
   }
 
   res.json({ token: signUserToken(user), user: publicUser(user) });
 }));
 
 // POST /api/auth/login  { identifier, password }  -- identifier = mobile OR username
-router.post('/login', asyncHandler((req, res) => {
+router.post('/login', asyncHandler(async (req, res) => {
   const identifier = String(req.body.identifier ?? req.body.mobile ?? '').trim();
   const password = String(req.body.password || '');
 
@@ -71,8 +74,8 @@ router.post('/login', asyncHandler((req, res) => {
   }
 
   const asMobile = normalizeMobile(identifier);
-  const user = db.prepare(
-    'SELECT * FROM users WHERE mobile = ? OR username = ? COLLATE NOCASE'
+  const user = await db.prepare(
+    'SELECT * FROM users WHERE mobile = ? OR LOWER(username) = LOWER(?)'
   ).get(asMobile, identifier);
 
   if (!user) {
@@ -90,8 +93,8 @@ router.post('/login', asyncHandler((req, res) => {
 }));
 
 // GET /api/auth/me
-router.get('/me', requireAuth('user'), asyncHandler((req, res) => {
-  const user = db.prepare('SELECT id, mobile, username FROM users WHERE id = ?').get(req.auth.sub);
+router.get('/me', requireAuth('user'), asyncHandler(async (req, res) => {
+  const user = await db.prepare('SELECT id, mobile, username FROM users WHERE id = ?').get(req.auth.sub);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ user });
 }));
@@ -127,24 +130,24 @@ const resetLimiter = rateLimit({
 // by mobile number or by username, matched case-insensitively and trimmed.
 // Parameters are always bound, never interpolated, so the input cannot alter
 // the query.
-function findUserByIdentifier(rawIdentifier) {
+async function findUserByIdentifier(rawIdentifier) {
   const identifier = String(rawIdentifier ?? '').trim();
   if (!identifier) return null;
   const asMobile = normalizeMobile(identifier);
   return db
-    .prepare('SELECT * FROM users WHERE mobile = ? OR username = ? COLLATE NOCASE')
+    .prepare('SELECT * FROM users WHERE mobile = ? OR LOWER(username) = LOWER(?)')
     .get(asMobile, identifier);
 }
 
 const NO_ACCOUNT_ERROR = 'No account found with the entered Mobile Number or Username.';
 
 // POST /api/auth/reset/lookup  { identifier }  -- does this account exist?
-router.post('/reset/lookup', resetLimiter, asyncHandler((req, res) => {
+router.post('/reset/lookup', resetLimiter, asyncHandler(async (req, res) => {
   const identifier = String(req.body.identifier || '').trim();
   if (!identifier) {
     return res.status(400).json({ error: 'Enter your mobile number or username.' });
   }
-  if (!findUserByIdentifier(identifier)) {
+  if (!(await findUserByIdentifier(identifier))) {
     return res.status(404).json({ error: NO_ACCOUNT_ERROR });
   }
   // Deliberately returns nothing about the account — not the name, not the
@@ -153,7 +156,7 @@ router.post('/reset/lookup', resetLimiter, asyncHandler((req, res) => {
 }));
 
 // POST /api/auth/reset  { identifier, password, confirmPassword }
-router.post('/reset', resetLimiter, asyncHandler((req, res) => {
+router.post('/reset', resetLimiter, asyncHandler(async (req, res) => {
   const identifier = String(req.body.identifier || '').trim();
   const password = String(req.body.password || '');
   // Confirmation is validated in the browser too; re-checked here because
@@ -174,7 +177,7 @@ router.post('/reset', resetLimiter, asyncHandler((req, res) => {
     return res.status(400).json({ error: 'Passwords do not match.' });
   }
 
-  const user = findUserByIdentifier(identifier);
+  const user = await findUserByIdentifier(identifier);
   if (!user) {
     return res.status(404).json({ error: NO_ACCOUNT_ERROR });
   }
@@ -183,7 +186,7 @@ router.post('/reset', resetLimiter, asyncHandler((req, res) => {
   // (which reference users.id) and every other detail stay attached to this
   // same account — a reset must never look like a new registration.
   const passwordHash = bcrypt.hashSync(password, 10);
-  db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, user.id);
+  await db.prepare('UPDATE users SET "passwordHash" = ? WHERE id = ?').run(passwordHash, user.id);
 
   // Security-relevant event: recorded in the server log, without the password.
   console.log(`[auth] Password reset completed for user #${user.id}.`);
@@ -195,29 +198,29 @@ router.post('/reset', resetLimiter, asyncHandler((req, res) => {
 }));
 
 // GET /api/auth/exists?mobile=  -> whether a mobile is already registered (signup UX)
-router.get('/exists', asyncHandler((req, res) => {
+router.get('/exists', asyncHandler(async (req, res) => {
   const mobile = normalizeMobile(req.query.mobile);
   if (!/^\d{10}$/.test(mobile)) return res.json({ exists: false });
-  const user = db.prepare('SELECT passwordHash FROM users WHERE mobile = ?').get(mobile);
+  const user = await db.prepare('SELECT "passwordHash" FROM users WHERE mobile = ?').get(mobile);
   res.json({ exists: !!(user && user.passwordHash) });
 }));
 
 // ---- Admin auth ----
 // POST /api/admin/login  { username, password }
-router.post('/admin/login', asyncHandler((req, res) => {
+router.post('/admin/login', asyncHandler(async (req, res) => {
   const username = String(req.body.username || '').trim();
   const password = String(req.body.password || '');
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' });
   }
-  const admin = db.prepare('SELECT * FROM admins WHERE username = ?').get(username);
+  const admin = await db.prepare('SELECT * FROM admins WHERE username = ?').get(username);
   if (!admin || !bcrypt.compareSync(password, admin.passwordHash)) {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
   const token = signAdminToken(admin);
-  // Reply first, then audit. The audit row is a second database write and, on
-  // Turso, a second network round trip — nothing in the response needs it, so
-  // it must not sit between the admin and their dashboard.
+  // Reply first, then audit. The audit row is a second database write — another
+  // network round trip that nothing in the response needs, so it must not sit
+  // between the admin and their dashboard.
   res.json({ token, admin: { id: admin.id, username: admin.username } });
   // req.auth isn't set on the login route itself — pass the admin explicitly.
   recordAdminActionDeferred(
@@ -227,19 +230,19 @@ router.post('/admin/login', asyncHandler((req, res) => {
 }));
 
 // POST /api/admin/change-password  { currentPassword, newPassword }  (admin only)
-router.post('/admin/change-password', requireAuth('admin'), asyncHandler((req, res) => {
+router.post('/admin/change-password', requireAuth('admin'), asyncHandler(async (req, res) => {
   const currentPassword = String(req.body.currentPassword || '');
   const newPassword = String(req.body.newPassword || '');
   if (newPassword.length < 6) {
     return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   }
-  const admin = db.prepare('SELECT * FROM admins WHERE id = ?').get(req.auth.sub);
+  const admin = await db.prepare('SELECT * FROM admins WHERE id = ?').get(req.auth.sub);
   if (!admin || !bcrypt.compareSync(currentPassword, admin.passwordHash)) {
     return res.status(401).json({ error: 'Current password is incorrect.' });
   }
   const hash = bcrypt.hashSync(newPassword, 10);
-  db.prepare('UPDATE admins SET passwordHash = ? WHERE id = ?').run(hash, admin.id);
-  recordAdminAction(req.auth, { action: 'admin.password_change', entity: 'admin', entityId: admin.id });
+  await db.prepare('UPDATE admins SET "passwordHash" = ? WHERE id = ?').run(hash, admin.id);
+  await recordAdminAction(req.auth, { action: 'admin.password_change', entity: 'admin', entityId: admin.id });
   res.json({ ok: true });
 }));
 

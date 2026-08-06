@@ -30,72 +30,82 @@ const upload = multer({
 router.post('/upload', upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No image uploaded.' });
   const path = await saveImage(req.file.buffer, req.file.originalname, req.file.mimetype);
-  recordAdminAction(req.auth, {
+  await recordAdminAction(req.auth, {
     action: 'image.upload',
     details: { path, originalName: req.file.originalname, bytes: req.file.size },
   });
   res.json({ path });
 }));
 
+// Postgres reports a unique-constraint breach with SQLSTATE 23505. Matching the
+// code rather than the message text keeps this working regardless of locale or
+// how the constraint happens to be named.
+const isUniqueViolation = (e) => e?.code === '23505';
+
 // ---- Categories ----
-router.get('/categories', asyncHandler((_req, res) => {
-  res.json(db.prepare('SELECT * FROM categories ORDER BY sortOrder ASC, name ASC').all());
+router.get('/categories', asyncHandler(async (_req, res) => {
+  res.json(await db.prepare('SELECT * FROM categories ORDER BY "sortOrder" ASC, name ASC').all());
 }));
 
-router.post('/categories', asyncHandler((req, res) => {
+router.post('/categories', asyncHandler(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Category name is required.' });
   const sortOrder = Number(req.body.sortOrder) || 0;
   try {
-    const info = db.prepare('INSERT INTO categories (name, slug, sortOrder) VALUES (?, ?, ?)')
+    const info = await db.prepare('INSERT INTO categories (name, slug, "sortOrder") VALUES (?, ?, ?)')
       .run(name, slugify(name), sortOrder);
-    const created = db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid);
-    recordAdminAction(req.auth, { action: 'category.create', entity: 'category', entityId: created.id, details: created });
+    const created = await db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid);
+    await recordAdminAction(req.auth, { action: 'category.create', entity: 'category', entityId: created.id, details: created });
     res.status(201).json(created);
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Category already exists.' });
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'Category already exists.' });
     throw e;
   }
 }));
 
-router.put('/categories/:id', asyncHandler((req, res) => {
+router.put('/categories/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Category not found.' });
   const name = req.body.name != null ? String(req.body.name).trim() : existing.name;
   const sortOrder = req.body.sortOrder != null ? Number(req.body.sortOrder) : existing.sortOrder;
-  db.prepare('UPDATE categories SET name = ?, slug = ?, sortOrder = ? WHERE id = ?')
-    .run(name, slugify(name), sortOrder, id);
-  const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
-  recordAdminAction(req.auth, {
+  try {
+    await db.prepare('UPDATE categories SET name = ?, slug = ?, "sortOrder" = ? WHERE id = ?')
+      .run(name, slugify(name), sortOrder, id);
+  } catch (e) {
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'Another category already uses that name.' });
+    throw e;
+  }
+  const updated = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  await recordAdminAction(req.auth, {
     action: 'category.update', entity: 'category', entityId: id,
     details: { before: existing, after: updated },
   });
   res.json(updated);
 }));
 
-router.delete('/categories/:id', asyncHandler((req, res) => {
+router.delete('/categories/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const count = db.prepare('SELECT COUNT(*) AS c FROM products WHERE categoryId = ?').get(id).c;
+  const count = (await db.prepare('SELECT COUNT(*) AS c FROM products WHERE "categoryId" = ?').get(id)).c;
   if (count > 0) {
     return res.status(409).json({ error: `Cannot delete: ${count} product(s) use this category. Reassign them first.` });
   }
   // Capture the row before it goes: the audit trail is the only remaining
   // record of a deleted category.
-  const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Category not found.' });
-  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-  recordAdminAction(req.auth, { action: 'category.delete', entity: 'category', entityId: id, details: existing });
+  await db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  await recordAdminAction(req.auth, { action: 'category.delete', entity: 'category', entityId: id, details: existing });
   res.json({ ok: true });
 }));
 
 // ---- Products ----
-router.get('/products', asyncHandler((_req, res) => {
-  res.json(listProducts({ includeHidden: true }));
+router.get('/products', asyncHandler(async (_req, res) => {
+  res.json(await listProducts({ includeHidden: true }));
 }));
 
-router.get('/products/:id', asyncHandler((req, res) => {
-  const product = getProductById(Number(req.params.id));
+router.get('/products/:id', asyncHandler(async (req, res) => {
+  const product = await getProductById(Number(req.params.id));
   if (!product) return res.status(404).json({ error: 'Product not found.' });
   res.json(product);
 }));
@@ -120,80 +130,81 @@ function parseProductBody(body) {
   };
 }
 
-router.post('/products', asyncHandler((req, res) => {
+router.post('/products', asyncHandler(async (req, res) => {
   const p = parseProductBody(req.body);
   if (!p.code || !p.name) return res.status(400).json({ error: 'Product code and name are required.' });
   // A price isn't required when the product carries per-size pricing (frames).
   if (p.price == null && !p.priceLabel && !p.sizeOptions) return res.status(400).json({ error: 'Enter a price.' });
   try {
-    // Positional params (?) — libSQL's Turso remote protocol doesn't bind
-    // @-named params, which silently NULLs the columns and fails the insert.
-    const info = db.prepare(`
-      INSERT INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, outOfStock, unavailable, sortOrder)
+    const info = await db.prepare(`
+      INSERT INTO products (code, name, description, price, "priceLabel", "categoryId", image, "sizeOptions", "outOfStock", unavailable, "sortOrder")
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder);
-    const created = getProductById(info.lastInsertRowid);
-    recordAdminAction(req.auth, { action: 'product.create', entity: 'product', entityId: created.id, details: created });
+    const created = await getProductById(info.lastInsertRowid);
+    await recordAdminAction(req.auth, { action: 'product.create', entity: 'product', entityId: created.id, details: created });
     res.status(201).json(created);
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'A product with this code already exists.' });
     throw e;
   }
 }));
 
-router.put('/products/:id', asyncHandler((req, res) => {
+router.put('/products/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getProductById(id);
+  const existing = await getProductById(id);
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
   const p = parseProductBody({ ...existing, ...req.body });
   if (!p.code || !p.name) return res.status(400).json({ error: 'Product code and name are required.' });
   try {
-    db.prepare(`
+    await db.prepare(`
       UPDATE products
-      SET code=?, name=?, description=?, price=?, priceLabel=?,
-          categoryId=?, image=?, sizeOptions=?, outOfStock=?,
-          unavailable=?, sortOrder=?, updatedAt=CURRENT_TIMESTAMP
+      SET code=?, name=?, description=?, price=?, "priceLabel"=?,
+          "categoryId"=?, image=?, "sizeOptions"=?, "outOfStock"=?,
+          unavailable=?, "sortOrder"=?, "updatedAt"=to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
       WHERE id=?
     `).run(p.code, p.name, p.description, p.price, p.priceLabel, p.categoryId, p.image, p.sizeOptions, p.outOfStock, p.unavailable, p.sortOrder, id);
-    const updated = getProductById(id);
-    recordAdminAction(req.auth, {
+    const updated = await getProductById(id);
+    await recordAdminAction(req.auth, {
       action: 'product.update', entity: 'product', entityId: id,
       details: { before: existing, after: updated },
     });
     res.json(updated);
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'A product with this code already exists.' });
+    if (isUniqueViolation(e)) return res.status(409).json({ error: 'A product with this code already exists.' });
     throw e;
   }
 }));
 
 // PATCH /api/admin/products/:id/status  { outOfStock?, unavailable? } -- instant toggles
-router.patch('/products/:id/status', asyncHandler((req, res) => {
+router.patch('/products/:id/status', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = getProductById(id);
+  const existing = await getProductById(id);
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
   const outOfStock = req.body.outOfStock != null ? (req.body.outOfStock ? 1 : 0) : (existing.outOfStock ? 1 : 0);
   const unavailable = req.body.unavailable != null ? (req.body.unavailable ? 1 : 0) : (existing.unavailable ? 1 : 0);
-  db.prepare('UPDATE products SET outOfStock = ?, unavailable = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?')
-    .run(outOfStock, unavailable, id);
-  recordAdminAction(req.auth, {
+  await db.prepare(`
+    UPDATE products
+    SET "outOfStock" = ?, unavailable = ?, "updatedAt" = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+    WHERE id = ?
+  `).run(outOfStock, unavailable, id);
+  await recordAdminAction(req.auth, {
     action: 'product.status_change', entity: 'product', entityId: id,
     details: {
       before: { outOfStock: !!existing.outOfStock, unavailable: !!existing.unavailable },
       after: { outOfStock: !!outOfStock, unavailable: !!unavailable },
     },
   });
-  res.json(getProductById(id));
+  res.json(await getProductById(id));
 }));
 
-router.delete('/products/:id', asyncHandler((req, res) => {
+router.delete('/products/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   // Read the WHOLE row, not just the image: once deleted, the audit trail below
   // is the only place this product's details still exist in the database.
-  const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Product not found.' });
-  db.prepare('DELETE FROM products WHERE id = ?').run(id);
-  recordAdminAction(req.auth, { action: 'product.delete', entity: 'product', entityId: id, details: existing });
+  await db.prepare('DELETE FROM products WHERE id = ?').run(id);
+  await recordAdminAction(req.auth, { action: 'product.delete', entity: 'product', entityId: id, details: existing });
   // Best-effort cleanup of an admin-uploaded image (Cloudinary or local uploads).
   // Never touches the bundled images/ that ship with the app.
   if (existing.image && !existing.image.startsWith('images/')) {
@@ -203,8 +214,8 @@ router.delete('/products/:id', asyncHandler((req, res) => {
 }));
 
 // ---- Orders (admin view) ----
-router.get('/orders', asyncHandler((_req, res) => {
-  const rows = db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
+router.get('/orders', asyncHandler(async (_req, res) => {
+  const rows = await db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
   res.json(rows.map(serializeOrder));
 }));
 
@@ -212,9 +223,9 @@ router.get('/orders', asyncHandler((_req, res) => {
 // Unified order update: any subset of fields may be sent. Only admins reach here
 // (router.use(requireAuth('admin')) above), and every change is persisted so the
 // customer's My Orders page reflects it on its next refresh.
-router.patch('/orders/:id', asyncHandler((req, res) => {
+router.patch('/orders/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
 
   // Once cancelled, the order's status and cancellation reason are frozen (it
@@ -309,13 +320,16 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
   if (keys.length === 0) return res.status(400).json({ error: 'Nothing to update.' });
   updates.updatedAt = new Date().toISOString();
 
-  // Positional params (?) — Turso remote doesn't bind @-named params.
+  // Column names are quoted so Postgres keeps their camel case (an unquoted
+  // refundStatus would be folded to refundstatus and not match the column).
+  // The keys come only from the fixed set assigned above, never from the
+  // request body, so nothing user-controlled reaches the SQL text.
   const fields = Object.keys(updates);
-  const setClause = fields.map((k) => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE orders SET ${setClause} WHERE id = ?`).run(...fields.map((k) => updates[k]), id);
+  const setClause = fields.map((k) => `"${k}" = ?`).join(', ');
+  await db.prepare(`UPDATE orders SET ${setClause} WHERE id = ?`).run(...fields.map((k) => updates[k]), id);
 
-  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-  recordAdminAction(req.auth, {
+  const updated = await db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  await recordAdminAction(req.auth, {
     action: 'order.update', entity: 'order', entityId: id,
     // Only the fields that actually changed, plus their previous values — a
     // compact, readable history of how the order reached its current state.
@@ -325,11 +339,11 @@ router.patch('/orders/:id', asyncHandler((req, res) => {
 }));
 
 // Back-compat: dedicated status endpoint delegates to the same logic.
-router.patch('/orders/:id/status', asyncHandler((req, res) => {
+router.patch('/orders/:id/status', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body.status || '').toLowerCase();
   if (!isValidStatus(status)) return res.status(400).json({ error: 'Invalid status.' });
-  const existing = db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
+  const existing = await db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Order not found.' });
   const current = normalizeStatus(existing.status);
   if (current === 'cancelled' && status !== 'cancelled') {
@@ -338,27 +352,27 @@ router.patch('/orders/:id/status', asyncHandler((req, res) => {
   if (current === 'delivered' && status !== 'delivered') {
     return res.status(409).json({ error: 'This order is delivered; its status can no longer be changed.' });
   }
-  db.prepare('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?')
+  await db.prepare('UPDATE orders SET status = ?, "updatedAt" = ? WHERE id = ?')
     .run(status, new Date().toISOString(), id);
-  recordAdminAction(req.auth, {
+  await recordAdminAction(req.auth, {
     action: 'order.status_change', entity: 'order', entityId: id,
     details: { before: current, after: status },
   });
-  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+  res.json(serializeOrder(await db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
 
 // ---- Customers ----
 // GET /api/admin/users  -- every registered customer, newest first, with their
 // order history summarised. Deliberately never selects passwordHash.
-router.get('/users', asyncHandler((_req, res) => {
-  const rows = db.prepare(`
-    SELECT u.id, u.mobile, u.username, u.createdAt,
-           COUNT(o.id)                                     AS orderCount,
+router.get('/users', asyncHandler(async (_req, res) => {
+  const rows = await db.prepare(`
+    SELECT u.id, u.mobile, u.username, u."createdAt",
+           COUNT(o.id)                                       AS "orderCount",
            COALESCE(SUM(CASE WHEN o.status = 'cancelled' THEN 0
-                             ELSE o.totalAmount END), 0)   AS totalSpent,
-           MAX(o.createdAt)                                AS lastOrderAt
+                             ELSE o."totalAmount" END), 0)   AS "totalSpent",
+           MAX(o."createdAt")                                AS "lastOrderAt"
     FROM users u
-    LEFT JOIN orders o ON o.userId = u.id
+    LEFT JOIN orders o ON o."userId" = u.id
     GROUP BY u.id
     ORDER BY u.id DESC
   `).all();
@@ -369,9 +383,9 @@ router.get('/users', asyncHandler((_req, res) => {
 // GET /api/admin/activity?limit=100  -- the audit trail, newest first.
 // The same rows are readable straight from the `admin_activity` table; this just
 // makes them reachable without opening the database file.
-router.get('/activity', asyncHandler((req, res) => {
+router.get('/activity', asyncHandler(async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 1000);
-  const rows = db.prepare('SELECT * FROM admin_activity ORDER BY id DESC LIMIT ?').all(limit);
+  const rows = await db.prepare('SELECT * FROM admin_activity ORDER BY id DESC LIMIT ?').all(limit);
   res.json(rows.map((r) => ({ ...r, details: r.details ? JSON.parse(r.details) : null })));
 }));
 

@@ -28,16 +28,16 @@ function serveStale(res, payload) {
 const dbUsable = () => dbStatus.ready;
 
 // GET /api/categories  -> categories that have at least one visible product
-router.get('/categories', asyncHandler((_req, res) => {
+router.get('/categories', asyncHandler(async (_req, res) => {
   if (dbUsable()) {
     try {
-      const rows = db.prepare(`
-        SELECT c.id, c.name, c.slug, c.sortOrder,
-               COUNT(p.id) FILTER (WHERE p.unavailable = 0) AS productCount
+      const rows = await db.prepare(`
+        SELECT c.id, c.name, c.slug, c."sortOrder",
+               COUNT(p.id) FILTER (WHERE p.unavailable = 0) AS "productCount"
         FROM categories c
-        LEFT JOIN products p ON p.categoryId = c.id
+        LEFT JOIN products p ON p."categoryId" = c.id
         GROUP BY c.id
-        ORDER BY c.sortOrder ASC, c.name ASC
+        ORDER BY c."sortOrder" ASC, c.name ASC
       `).all();
       // Empty products deliberately: saveCatalogCache keeps whatever it already
       // holds and only replaces the category list. Passing cachedProducts()
@@ -61,12 +61,12 @@ router.get('/categories', asyncHandler((_req, res) => {
 }));
 
 // GET /api/products?category=slug  -> visible products (unavailable excluded)
-router.get('/products', asyncHandler((req, res) => {
+router.get('/products', asyncHandler(async (req, res) => {
   const categorySlug = req.query.category ? String(req.query.category) : null;
 
   if (dbUsable()) {
     try {
-      const products = listProducts({ includeHidden: false, categorySlug });
+      const products = await listProducts({ includeHidden: false, categorySlug });
       // Only an unfiltered read is a complete snapshot worth storing. Empty
       // categories for the same reason as above — the existing ones are kept.
       if (!categorySlug) saveCatalogCache({ categories: [], products });
@@ -83,12 +83,12 @@ router.get('/products', asyncHandler((req, res) => {
 }));
 
 // GET /api/products/:id
-router.get('/products/:id', asyncHandler((req, res) => {
+router.get('/products/:id', asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
 
   if (dbUsable()) {
     try {
-      const product = getProductById(id);
+      const product = await getProductById(id);
       if (!product || product.unavailable) return res.status(404).json({ error: 'Product not found' });
       return res.json(product);
     } catch (err) {

@@ -13,8 +13,11 @@ export const PROJECT_ROOT = path.resolve(SERVER_ROOT, '..');
 
 export const config = {
   port: Number(process.env.PORT) || 5000,
-  dbPath: process.env.DB_PATH || path.join(SERVER_ROOT, 'bunnystore.db'),
   uploadsDir: process.env.UPLOADS_DIR || path.join(SERVER_ROOT, 'uploads'),
+
+  // The database lives outside this container — see db.js. Its connection
+  // string is read straight from DATABASE_URL rather than being mirrored here,
+  // so there is exactly one place it can come from.
 
   // JWT secret. MUST be overridden via env in production.
   jwtSecret: process.env.JWT_SECRET || 'bunny-gift-store-dev-secret-change-me',

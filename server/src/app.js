@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { config, PROJECT_ROOT } from './config.js';
-import { persistence, persist, dbStatus } from './db.js';
+import { persistence, dbStatus } from './db.js';
 import { seedStatus } from './seed.js';
 import { catalogCacheStatus } from './catalogCache.js';
 import { usingCloudinary } from './storage.js';
@@ -14,11 +14,10 @@ import ordersRoutes from './routes/orders.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 
 // NOTE: neither the schema nor the seed runs here. Both are kicked off by
-// server.js AFTER the HTTP port is open, because against the remote Turso
-// primary they are network round trips on a synchronous driver — running them
-// before app.listen() delays (or, if the primary is unreachable, permanently
-// prevents) the port opening, which fails the health check and leaves the API
-// answering nothing at all.
+// server.js AFTER the HTTP port is open, because they are network round trips to
+// Postgres — running them before app.listen() delays (or, if the database is
+// unreachable, permanently prevents) the port opening, which fails the health
+// check and leaves the API answering nothing at all.
 
 const app = express();
 app.set('trust proxy', 1);
@@ -28,24 +27,9 @@ app.set('trust proxy', 1);
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '1mb' }));
 
-// Flush every data-changing request into the main .db file.
-//
-// SQLite has already COMMITTED the write by this point — nothing can be lost —
-// but in WAL mode the committed rows sit in bunnystore.db-wal until a
-// checkpoint. Doing it here, once, for every mutating method means no individual
-// route can forget to (three of them previously did), so the database file on
-// disk always reflects the live application's state.
-//
-// It runs on 'finish' — after the response has been flushed — so the checkpoint
-// never adds latency to the request. The file therefore trails an acknowledged
-// write by well under a millisecond, not by a request.
-app.use((req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-  // Unconditional: a request that failed part-way may still have committed rows,
-  // and checkpointing an empty log costs nothing.
-  res.on('finish', persist);
-  next();
-});
+// (There is no post-request flush step any more. That existed to fold SQLite's
+// write-ahead log into the .db file; Postgres commits are durable on the server
+// the moment the query returns, with nothing local left to check point.)
 
 // Basic rate limiting on auth to slow brute-force on the admin login.
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
@@ -78,10 +62,10 @@ app.get('/api/health', (_req, res) => res.json({
 }));
 
 // Guard every data route until the schema exists. Without this, requests
-// arriving during a database outage each block the event loop on a synchronous
-// driver call that will not return, and the process stops answering anything at
-// all. A fast, explicit 503 keeps the API responsive and tells the client what
-// is actually wrong.
+// arriving during a database outage each sit on a connection attempt that will
+// not succeed, piling up until the pool is exhausted and the API stops answering
+// anything at all. A fast, explicit 503 keeps it responsive and tells the client
+// what is actually wrong.
 //
 // The message distinguishes the two cases deliberately. Telling someone to
 // "try again in a few seconds" during an hour-long database outage is not a

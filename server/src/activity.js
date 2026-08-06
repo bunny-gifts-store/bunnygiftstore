@@ -1,4 +1,4 @@
-import { db, persist } from './db.js';
+import { db } from './db.js';
 
 // ---------------------------------------------------------------------------
 // Admin audit trail.
@@ -12,13 +12,12 @@ import { db, persist } from './db.js';
 // `details`, so a deletion can be reviewed (or the row reconstructed) later.
 // ---------------------------------------------------------------------------
 
-// Prepared lazily, on first use — NOT at import time. The schema is created
-// after the HTTP port opens (see server.js), so preparing here at import would
-// run against a table that does not exist yet, and against Turso it would add
-// another blocking network round trip to the boot path.
+// Built lazily, on first use — NOT at import time. The schema is created after
+// the HTTP port opens (see server.js), so building this at import would tie the
+// boot path to a table that does not exist yet.
 let insert = null;
 const statement = () => (insert ??= db.prepare(`
-  INSERT INTO admin_activity (adminId, username, action, entity, entityId, details)
+  INSERT INTO admin_activity ("adminId", username, action, entity, "entityId", details)
   VALUES (?, ?, ?, ?, ?, ?)
 `));
 
@@ -29,9 +28,9 @@ const statement = () => (insert ??= db.prepare(`
  *               `{ sub, username }` for the login route, where it isn't set yet.
  * @param entry  { action, entity?, entityId?, details? }
  */
-export function recordAdminAction(auth, { action, entity = null, entityId = null, details = null }) {
+export async function recordAdminAction(auth, { action, entity = null, entityId = null, details = null }) {
   try {
-    statement().run(
+    await statement().run(
       auth?.sub ?? null,
       auth?.username ?? null,
       action,
@@ -49,15 +48,12 @@ export function recordAdminAction(auth, { action, entity = null, entityId = null
 /**
  * Record an admin operation WITHOUT making the caller wait for it.
  *
- * On Turso the insert is a network round trip, so doing it inline adds its full
- * latency to the response. Nothing in the response depends on the audit row, so
- * for latency-sensitive routes (login) it is written just after the reply has
- * been sent. It still lands in the same database, and persist() folds it into
- * the .db file afterwards — app.js's per-request flush has already run by then.
+ * The insert is a network round trip to Postgres, so doing it inline adds its
+ * full latency to the response. Nothing in the response depends on the audit
+ * row, so for latency-sensitive routes (login) it is written just after the
+ * reply has been sent. recordAdminAction swallows its own failures, so the
+ * floating promise here can never surface as an unhandled rejection.
  */
 export function recordAdminActionDeferred(auth, entry) {
-  setImmediate(() => {
-    recordAdminAction(auth, entry);
-    persist();
-  });
+  setImmediate(() => { recordAdminAction(auth, entry); });
 }

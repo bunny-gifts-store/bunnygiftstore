@@ -41,7 +41,7 @@ export function serializeOrder(o) {
 }
 
 // POST /api/orders  -- checkout flow (stores item snapshot + userId when logged in)
-router.post('/', asyncHandler((req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { name, email, phone, address, city, state, pincode, transactionId, totalAmount, totalItems, items } = req.body;
 
   if (!name || !email || !phone || !address || !city || !state || !pincode || !transactionId) {
@@ -60,14 +60,14 @@ router.post('/', asyncHandler((req, res) => {
   if (!userId) {
     const digits = String(phone || '').replace(/[^\d]/g, '').slice(-10);
     if (digits.length === 10) {
-      const match = db.prepare('SELECT id FROM users WHERE mobile = ?').get(digits);
+      const match = await db.prepare('SELECT id FROM users WHERE mobile = ?').get(digits);
       if (match) userId = match.id;
     }
   }
-  const info = db.prepare(`
+  const info = await db.prepare(`
     INSERT INTO orders
-      (userId, name, email, phone, address, city, state, pincode, transactionId,
-       totalAmount, totalItems, items, status, paymentStatus)
+      ("userId", name, email, phone, address, city, state, pincode, "transactionId",
+       "totalAmount", "totalItems", items, status, "paymentStatus")
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'paid')
   `).run(
     userId, name, email, phone, address, city, state, pincode, String(transactionId).trim(),
@@ -79,19 +79,19 @@ router.post('/', asyncHandler((req, res) => {
 }));
 
 // GET /api/orders/mine  -- only the logged-in user's own orders (auth required).
-router.get('/mine', requireAuth('user'), asyncHandler((req, res) => {
-  const rows = db.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY id DESC').all(req.auth.sub);
+router.get('/mine', requireAuth('user'), asyncHandler(async (req, res) => {
+  const rows = await db.prepare('SELECT * FROM orders WHERE "userId" = ? ORDER BY id DESC').all(req.auth.sub);
   res.json(rows.map(serializeOrder));
 }));
 
 // POST /api/orders/:id/cancel  { reason }  -- customer self-cancellation.
 // Server-side enforces every rule: ownership, early state, the 1-hour window,
 // once-only, and a mandatory reason. Never trust the client's timer.
-router.post('/:id/cancel', requireAuth('user'), asyncHandler((req, res) => {
+router.post('/:id/cancel', requireAuth('user'), asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const reason = String(req.body.reason || '').trim();
 
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND userId = ?').get(id, req.auth.sub);
+  const order = await db.prepare('SELECT * FROM orders WHERE id = ? AND "userId" = ?').get(id, req.auth.sub);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
 
   const status = normalizeStatus(order.status);
@@ -111,13 +111,13 @@ router.post('/:id/cancel', requireAuth('user'), asyncHandler((req, res) => {
   }
 
   const now = new Date().toISOString();
-  db.prepare(`
+  await db.prepare(`
     UPDATE orders
-    SET status = 'cancelled', cancellationReason = ?, cancelledAt = ?, cancelledBy = 'user', updatedAt = ?
+    SET status = 'cancelled', "cancellationReason" = ?, "cancelledAt" = ?, "cancelledBy" = 'user', "updatedAt" = ?
     WHERE id = ?
   `).run(reason, now, now, id);
 
-  res.json(serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+  res.json(serializeOrder(await db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 }));
 
 export default router;

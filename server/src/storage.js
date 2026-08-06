@@ -7,7 +7,8 @@ import { config } from './config.js';
 //
 // Product images (admin uploads / camera captures) must survive server
 // restarts. Render's disk is ephemeral, so writing them to server/uploads loses
-// them on every restart — the same class of problem Turso fixed for the database.
+// them on every restart — the same class of problem Postgres solves for the
+// database.
 //
 // When CLOUDINARY_URL is set to a VALID value
 //   cloudinary://<api_key>:<api_secret>@<cloud_name>

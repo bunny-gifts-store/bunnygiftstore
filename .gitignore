@@ -37,6 +37,12 @@ build/
 *.db-wal
 server/*.db
 
+# Database snapshots from `npm run db:pull` (real customers, orders and
+# password hashes — never publish)
+live-snapshot.json
+server/live-snapshot.json
+server/*-snapshot.json
+
 # Uploaded item images (runtime data — keep the folder, ignore contents)
 server/uploads/*
 !server/uploads/.gitkeep

@@ -1,18 +1,18 @@
 import app from './src/app.js';
 import { config } from './src/config.js';
-import { persist, initSchema, dbStatus, scheduleRecovery, setDbReadyHook } from './src/db.js';
+import { initSchema, dbStatus, scheduleRecovery, setDbReadyHook, closeDb } from './src/db.js';
 import { seedDatabase } from './src/seed.js';
 import { loadCatalogCache } from './src/catalogCache.js';
 
 // Open the HTTP port FIRST, before any database work.
 //
-// Nothing in the boot path may block the port from opening. Against Turso every
-// schema statement is a network round trip on a synchronous driver, so doing
-// that work during import (as this used to) meant a slow or unreachable primary
-// stopped app.listen() from ever running: the platform health check timed out,
-// the API answered nothing at all, and the site sat on "Signing in…" forever
-// with no error anywhere. Listening first turns that class of failure into a
-// visible, diagnosable state on /api/health instead of a silent hang.
+// Nothing in the boot path may block the port from opening. Every schema
+// statement is a network round trip to Postgres, so doing that work during
+// import (as this used to) meant a slow or unreachable database stopped
+// app.listen() from ever running: the platform health check timed out, the API
+// answered nothing at all, and the site sat on "Signing in…" forever with no
+// error anywhere. Listening first turns that class of failure into a visible,
+// diagnosable state on /api/health instead of a silent hang.
 const server = app.listen(config.port, () => {
   console.log(`Bunny Gift Store API running on http://localhost:${config.port}`);
   bootstrap();
@@ -21,9 +21,9 @@ const server = app.listen(config.port, () => {
 // Seeding runs on first boot AND after any recovery — a database that comes
 // back empty (or is a freshly created replacement) needs its catalogue again.
 // Idempotent, so it costs almost nothing when there is already data.
-function seedSafely() {
+async function seedSafely() {
   try {
-    seedDatabase();
+    await seedDatabase();
   } catch (err) {
     console.error('[seed] Seeding failed (server is still running):', err);
   }
@@ -49,29 +49,29 @@ async function bootstrap() {
     return;
   }
 
-  seedSafely();
+  await seedSafely();
 }
 
-// Leave the database file complete and self-contained on shutdown.
+// Close the connection pool on the way out.
 //
-// Requests already flush as they finish, so this is a backstop for anything
-// written outside a request — and it makes Ctrl+C / a container stop leave
-// bunnystore.db in a state that can be copied or opened straight away, with no
-// leftover -wal sidecar to carry along.
+// Committed data is already durable on the Postgres server, so nothing is at
+// risk here — this just lets in-flight queries finish and returns the pooled
+// connections instead of leaving the provider to time them out, which matters
+// on free tiers where the connection allowance is small.
 let shuttingDown = false;
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(`\n[shutdown] ${signal} received — flushing database to disk…`);
-    server.close(() => {
-      persist();
-      console.log('[shutdown] Database is fully written to disk. Bye.');
+    console.log(`\n[shutdown] ${signal} received — closing database connections…`);
+    server.close(async () => {
+      await closeDb();
+      console.log('[shutdown] Bye.');
       process.exit(0);
     });
     // Don't hang forever on a lingering keep-alive connection.
-    setTimeout(() => {
-      persist();
+    setTimeout(async () => {
+      await closeDb();
       process.exit(0);
     }, 5000).unref();
   });

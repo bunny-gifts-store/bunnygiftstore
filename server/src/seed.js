@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db, usingTurso, persist } from './db.js';
+import { db, closeDb } from './db.js';
 import { config } from './config.js';
 
 // Category taxonomy (sortOrder = display order).
@@ -18,7 +18,7 @@ export const CATEGORIES = [
   'Party & Events',
 ];
 
-// The existing 42 storefront products, now with an assigned category.
+// The existing storefront products, each with an assigned category.
 // image paths are relative to the frontend public root (images/CODE.png).
 export const PRODUCTS = [
   { code: 'LA01', name: 'Premium Heart Lamp', price: 350, category: 'Lamps & Lighting', description: 'Romantic premium heart lamp with glowing LED lighting.' },
@@ -81,44 +81,38 @@ export const seedStatus = {
   failedInserts: 0, firstError: null,
 };
 
-export function seedDatabase({ force = false } = {}) {
+export async function seedDatabase({ force = false } = {}) {
   // Always ensure a default admin exists.
-  const adminCount = db.prepare('SELECT COUNT(*) AS c FROM admins').get().c;
+  const adminCount = (await db.prepare('SELECT COUNT(*) AS c FROM admins').get()).c;
   if (adminCount === 0) {
     const hash = bcrypt.hashSync(config.defaultAdmin.password, 10);
-    db.prepare('INSERT INTO admins (username, passwordHash) VALUES (?, ?)').run(
+    await db.prepare('INSERT INTO admins (username, "passwordHash") VALUES (?, ?)').run(
       config.defaultAdmin.username,
       hash
     );
     console.log(`[seed] Created default admin "${config.defaultAdmin.username}". Change the password after first login.`);
   }
 
-  // Seeding runs outside any HTTP request, so app.js's per-request flush doesn't
-  // cover it — fold the default admin (and, below, the catalogue) into the .db
-  // file here.
-  persist();
-
-  const productCount = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
+  const productCount = (await db.prepare('SELECT COUNT(*) AS c FROM products').get()).c;
   if (productCount > 0 && !force) {
     console.log('[seed] Products already present; skipping product seed.');
     seedStatus.skipped = true;
     seedStatus.products = productCount;
-    seedStatus.categories = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
+    seedStatus.categories = (await db.prepare('SELECT COUNT(*) AS c FROM categories').get()).c;
     return;
   }
 
+  // ON CONFLICT DO NOTHING keeps the seed idempotent: re-running it (on a
+  // restart, or after recovery) leaves existing rows exactly as they are rather
+  // than erroring on the unique name/slug/code columns.
   const insertCategory = db.prepare(
-    'INSERT OR IGNORE INTO categories (name, slug, sortOrder) VALUES (?, ?, ?)'
+    'INSERT INTO categories (name, slug, "sortOrder") VALUES (?, ?, ?) ON CONFLICT DO NOTHING'
   );
   const getCategoryId = db.prepare('SELECT id FROM categories WHERE name = ?');
-  // POSITIONAL parameters (?), not named (@name): libSQL's remote/hrana protocol
-  // (Turso) does not bind @-named parameters, so a named INSERT lands NULLs and
-  // fails the NOT NULL columns — which is exactly why products never persisted
-  // while the positional category/user/order inserts did. Positional binding
-  // works everywhere.
   const insertProduct = db.prepare(`
-    INSERT OR IGNORE INTO products (code, name, description, price, priceLabel, categoryId, image, sizeOptions, sortOrder)
+    INSERT INTO products (code, name, description, price, "priceLabel", "categoryId", image, "sizeOptions", "sortOrder")
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT DO NOTHING
   `);
 
   // Insert one product, logging (but not aborting on) any failure so a single
@@ -126,9 +120,9 @@ export function seedDatabase({ force = false } = {}) {
   // failure is visible in the deploy logs instead of a silent empty catalogue.
   let failed = 0;
   let firstError = null;
-  const seedProduct = (row) => {
+  const seedProduct = async (row) => {
     try {
-      insertProduct.run(
+      await insertProduct.run(
         row.code, row.name, row.description, row.price, row.priceLabel,
         row.categoryId, row.image, row.sizeOptions, row.sortOrder
       );
@@ -139,65 +133,63 @@ export function seedDatabase({ force = false } = {}) {
     }
   };
 
-  const runSeed = () => {
-    CATEGORIES.forEach((name, i) => insertCategory.run(name, slugify(name), i));
-
-    PRODUCTS.forEach((p, i) => {
-      const categoryId = getCategoryId.get(p.category)?.id ?? null;
-      seedProduct({
-        code: p.code,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        priceLabel: null,
-        categoryId,
-        image: `images/${p.code}.png`,
-        sizeOptions: null,
-        sortOrder: i,
-      });
-    });
-
-    // Photo frames (F1..F27) with variable size pricing.
-    const framesCategoryId = getCategoryId.get('Photo Frames')?.id ?? null;
-    for (let i = 0; i < 27; i++) {
-      const code = `F${i + 1}`;
-      seedProduct({
-        code,
-        name: `Photo Frame ${code}`,
-        description: 'High-quality photo frame available in multiple sizes.',
-        price: null,
-        priceLabel: 'From ₹500',
-        categoryId: framesCategoryId,
-        image: `images/frames/${i + 1}.png`,
-        sizeOptions: JSON.stringify(FRAME_SIZE_OPTIONS),
-        sortOrder: 100 + i,
-      });
-    }
-  };
-
-  // libSQL rejects the client-side BEGIN/COMMIT that a better-sqlite3-style
-  // db.transaction() issues against a remote/replica connection
-  // (InvalidParserState). The seed is idempotent (INSERT OR IGNORE) and runs
-  // only once, so run the statements directly on Turso; keep the transaction
-  // (a minor speed-up) only for the plain local SQLite file.
-  if (usingTurso) {
-    runSeed();
-  } else {
-    db.transaction(runSeed)();
+  for (const [i, name] of CATEGORIES.entries()) {
+    await insertCategory.run(name, slugify(name), i);
   }
-  persist();
+
+  for (const [i, p] of PRODUCTS.entries()) {
+    const categoryId = (await getCategoryId.get(p.category))?.id ?? null;
+    await seedProduct({
+      code: p.code,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      priceLabel: null,
+      categoryId,
+      image: `images/${p.code}.png`,
+      sizeOptions: null,
+      sortOrder: i,
+    });
+  }
+
+  // Photo frames (F1..F27) with variable size pricing.
+  const framesCategoryId = (await getCategoryId.get('Photo Frames'))?.id ?? null;
+  for (let i = 0; i < 27; i++) {
+    const code = `F${i + 1}`;
+    await seedProduct({
+      code,
+      name: `Photo Frame ${code}`,
+      description: 'High-quality photo frame available in multiple sizes.',
+      price: null,
+      priceLabel: 'From ₹500',
+      categoryId: framesCategoryId,
+      image: `images/frames/${i + 1}.png`,
+      sizeOptions: JSON.stringify(FRAME_SIZE_OPTIONS),
+      sortOrder: 100 + i,
+    });
+  }
+
   if (failed) console.error(`[seed] ${failed} product(s) failed to insert.`);
-  const total = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
+  const total = (await db.prepare('SELECT COUNT(*) AS c FROM products').get()).c;
   console.log(`[seed] Seeded ${CATEGORIES.length} categories and ${total} products.`);
 
   seedStatus.ran = true;
   seedStatus.products = total;
-  seedStatus.categories = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
+  seedStatus.categories = (await db.prepare('SELECT COUNT(*) AS c FROM categories').get()).c;
   seedStatus.failedInserts = failed;
   seedStatus.firstError = firstError;
 }
 
-// Allow running directly: `node src/seed.js` or `node src/seed.js --force`
-if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('seed.js')) {
-  seedDatabase({ force: process.argv.includes('--force') });
+// Allow running directly: `npm run seed` (or `npm run seed:force`).
+// The schema normally comes from the API's boot path, so create it here too —
+// seeding a database that has never been booted against must not fail on a
+// missing table.
+if (process.argv[1]?.endsWith('seed.js')) {
+  const { initSchema } = await import('./db.js');
+  if (!(await initSchema())) {
+    console.error('[seed] Could not reach the database. Is DATABASE_URL set?');
+    process.exit(1);
+  }
+  await seedDatabase({ force: process.argv.includes('--force') });
+  await closeDb();
 }

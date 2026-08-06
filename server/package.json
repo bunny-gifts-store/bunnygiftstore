@@ -7,10 +7,10 @@
     "dev": "node --watch server.js",
     "seed": "node src/seed.js",
     "seed:force": "node src/seed.js --force",
-    "db:check": "node src/db-check.js",
     "db:pull": "node src/db-pull.js",
     "db:restore": "node src/db-restore.js",
-    "turso:check": "node src/turso-check.js"
+    "db:import": "node src/db-import.js",
+    "migrate": "node src/migrate.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -20,7 +20,7 @@
     "express": "^4.19.0",
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
-    "libsql": "^0.5.29",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "pg": "^8.13.0"
   }
 }
