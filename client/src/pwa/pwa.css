@@ -35,19 +35,53 @@
   outline-offset: 2px;
 }
 
-/* Navbar pill — sits alongside Cart / the user menu. */
+/* Navbar pill — sits at the far right of the navbar, past the user menu. */
 .pwa-install-btn--nav {
+  position: relative;   /* anchors the shine sweep below */
+  overflow: hidden;     /* keeps the sweep inside the pill's rounded edge */
   padding: 0.42rem 0.95rem;
   font-size: 0.85rem;
   color: #fff;
   background: linear-gradient(135deg, var(--bg-light-purple) 0%, var(--bg-accent-color) 100%);
   border-radius: 50px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  /* Draws the eye without hijacking it — see the note on the keyframes. */
+  animation: pwaInstallPulse 2.6s ease-in-out infinite;
 }
 .pwa-install-btn--nav:hover:not(:disabled) {
   box-shadow: 0 7px 18px rgba(0, 0, 0, 0.26);
   filter: brightness(1.05);
 }
+
+/* A highlight that sweeps across the pill, like light catching a surface.
+   pointer-events:none so it can never intercept the click it is advertising. */
+.pwa-install-btn--nav::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -75%;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: pwaInstallShine 2.6s ease-in-out infinite;
+}
+
+/* Once someone is interacting with it, the animation has done its job and
+   would only be a distraction — and a moving highlight under the cursor makes
+   the button feel unstable. Hold both still. */
+.pwa-install-btn--nav:hover,
+.pwa-install-btn--nav:focus-visible,
+.pwa-install-btn--nav:disabled { animation-play-state: paused; }
+.pwa-install-btn--nav:hover::after,
+.pwa-install-btn--nav:focus-visible::after,
+.pwa-install-btn--nav:disabled::after { opacity: 0; }
 
 /* Full-width variant — used on the login/registration card. */
 .pwa-install-btn--block {
@@ -237,6 +271,30 @@
   50% { opacity: 0.35; }
 }
 
+/* Install pill attention loop.
+   Deliberately ONE slow cycle every 2.6s rather than a fast blink: anything
+   flashing more than three times a second is a seizure risk (WCAG 2.3.1), and
+   a hard on/off flicker next to the Cart and account controls reads as a fault
+   rather than an invitation. This is a soft expanding halo plus a single pass
+   of light — noticeable in peripheral vision, but calm enough to sit in a
+   navbar the customer uses for everything else. */
+@keyframes pwaInstallPulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18), 0 0 0 0 rgba(199, 125, 255, 0.6);
+  }
+  50% {
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22), 0 0 0 8px rgba(199, 125, 255, 0);
+  }
+}
+
+/* Sweeps across, then waits offscreen for the rest of the cycle, so the
+   highlight reads as an occasional glint instead of a constant scroll. */
+@keyframes pwaInstallShine {
+  0% { left: -75%; }
+  45% { left: 130%; }
+  100% { left: 130%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pwa-guide-overlay,
   .pwa-guide-card,
@@ -245,4 +303,13 @@
   .pwa-offline-dot { animation: none; }
   .pwa-install-btn { transition: none; }
   .pwa-install-btn:hover:not(:disabled) { transform: none; }
+
+  /* Readers who ask for reduced motion get a static pill: the halo is frozen
+     at its resting state and the sweep removed entirely. The button keeps its
+     full colour and contrast, so nothing is lost except the movement. */
+  .pwa-install-btn--nav {
+    animation: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(199, 125, 255, 0.45);
+  }
+  .pwa-install-btn--nav::after { display: none; }
 }

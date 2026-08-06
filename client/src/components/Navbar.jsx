@@ -82,15 +82,6 @@ export default function Navbar() {
                 <li className="nav-item"><NavLink className="nav-link" to="/my-orders" onClick={close}>My Orders</NavLink></li>
               )}
 
-              {/* Only present when the browser can install the app and it isn't
-                  installed yet — otherwise the list item's spacing would leave
-                  a gap in the nav. */}
-              {canInstall && (
-                <li className="nav-item ms-lg-3 d-flex align-items-center">
-                  <InstallAppButton onDone={close} />
-                </li>
-              )}
-
               <li className="nav-item ms-lg-3">
                 <a
                   className="nav-link cart-link"
@@ -157,6 +148,22 @@ export default function Navbar() {
                       </button>
                     </li>
                   </ul>
+                </li>
+              )}
+
+              {/* LAST in the list on purpose: the install pill sits past the
+                  user menu, in the empty space at the far right of the navbar,
+                  where nothing else competes with it. It animates to draw the
+                  eye, so putting it between Cart and the user menu made those
+                  harder to use — out at the end it attracts attention without
+                  sitting on top of the controls people actually came for.
+
+                  Rendered only when the browser can genuinely install the app
+                  and it isn't installed already; otherwise the list item's
+                  spacing would leave a gap. */}
+              {canInstall && (
+                <li className="nav-item ms-lg-3 d-flex align-items-center">
+                  <InstallAppButton onDone={close} />
                 </li>
               )}
             </ul>
