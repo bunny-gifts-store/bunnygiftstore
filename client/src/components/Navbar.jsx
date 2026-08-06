@@ -162,7 +162,7 @@ export default function Navbar() {
                   and it isn't installed already; otherwise the list item's
                   spacing would leave a gap. */}
               {canInstall && (
-                <li className="nav-item ms-lg-3 d-flex align-items-center">
+                <li className="nav-item nav-item--install ms-lg-3 d-flex align-items-center">
                   <InstallAppButton onDone={close} />
                 </li>
               )}

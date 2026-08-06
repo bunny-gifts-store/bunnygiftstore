@@ -26,14 +26,28 @@
   line-height: 1;
   border: 0;
   cursor: pointer;
+  /* "Install App" must stay on one line. The navbar sets flex-wrap:nowrap, so
+     below ~1280px the row is over-subscribed and every flex item that CAN
+     shrink does. The nav links opt out via their own white-space:nowrap, and
+     the search field has a min-width floor — which left this button as the only
+     thing able to give, so it compressed and broke the label across two lines. */
+  white-space: nowrap;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
+/* The glyph keeps its size too; without this it is squashed before the text is. */
+.pwa-install-btn > svg { flex: 0 0 auto; }
 .pwa-install-btn:disabled { opacity: 0.7; cursor: default; }
 .pwa-install-btn:hover:not(:disabled) { transform: translateY(-1px); }
 .pwa-install-btn:focus-visible {
   outline: 2px solid var(--bg-light-purple);
   outline-offset: 2px;
 }
+
+/* The pill and its list item both hold their natural width, so the row takes
+   the space it needs from the search field (which has its own floor) instead of
+   from the button's label. */
+.navbar .nav-item--install,
+.pwa-install-btn--nav { flex: 0 0 auto; }
 
 /* Navbar pill — sits at the far right of the navbar, past the user menu. */
 .pwa-install-btn--nav {
@@ -96,6 +110,31 @@
 .pwa-install-btn--block:hover:not(:disabled) {
   background: rgba(199, 125, 255, 0.08);
   border-color: var(--bg-light-purple);
+}
+
+/* Just above the collapse point the row is at its tightest: brand, search, four
+   nav items and this pill all on one line. The pill no longer shrinks, so the
+   width has to come from somewhere — and the account NAME is the one item that
+   costs real space while carrying no information the avatar beside it doesn't
+   already give. Recovering it there keeps every control at its natural size
+   instead of squeezing all of them. The full name returns above 1200px.
+
+   Hidden visually but NOT removed: `display:none` would drop the name from the
+   accessibility tree too, and since the avatar is aria-hidden that would leave
+   the account link announcing nothing but its "▾" caret. Taking it out of flow
+   and clipping it frees the same space while a screen reader still reads the
+   customer's name. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .navbar .nav-user-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* On phones the navbar collapses; let the pill breathe on its own row. */
